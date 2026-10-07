@@ -12,9 +12,9 @@ dynamic = ["version"]
 dependencies = ["requests>=2.31"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "pytest-playwright>=0.5"]
 
-# `pip install .` gives you an `neighbors` command (neighbors web, neighbors engine, …)
+# `pip install .` gives you the `neighbors` command (neighbors, neighbors web, …)
 [project.scripts]
 neighbors = "neighbors.cli:main"
 
@@ -27,3 +27,7 @@ neighbors = ["web.html", "neighborhoods.json"]
 
 [tool.setuptools.dynamic]
 version = { attr = "neighbors.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["e2e: browser tests (need `playwright install chromium`)"]
