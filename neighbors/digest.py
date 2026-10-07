@@ -9,14 +9,9 @@ domain), and listings that have just been verified as real.
 
 from __future__ import annotations
 
-import time
 
-DAY_S = 86400
-
-
-def build_digest(store, feedback, since: float, now: float | None = None) -> dict:
+def build_digest(store, feedback, since: float) -> dict:
     """Summarize everything that changed at or after `since`."""
-    now = now or time.time()
     liked = set(feedback.liked)
     new_ids: list[str] = []
     price_drops: list[dict] = []

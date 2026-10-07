@@ -322,3 +322,145 @@ class TestUpdating:
         expect(empty).to_contain_text("over your price cap")
         empty.locator("#empty-prefs").click()
         expect(page.locator("#prefs-dialog")).to_be_visible()
+
+
+# ---------- robustness (regressions; candidates for new SPEC ids) ----------
+
+XSS = '<img src=x onerror="window.__xss=1">'
+
+
+def seed_listing(app, listing_id: str, **overrides) -> None:
+    """Add one listing that fully matches seed_home's preferences, so it ranks
+    on the first page. Store is re-read per request: no restart needed."""
+    from neighbors.models import Listing
+    from neighbors.store import Store
+
+    fields = dict(id=listing_id, source="housingconnect",
+                  url="https://example.org/listing", address="1 Test St, Brooklyn, NY",
+                  neighborhood="williamsburg", price=2400, beds=1, baths=1, sqft=700,
+                  lat=40.7142, lon=-73.9614, amenities=["laundry_in_unit"])
+    fields.update(overrides)
+    store = Store(app.app_dir / "store.db")
+    store.upsert([Listing(**fields)])
+    store.save()
+
+
+class TestRobustness:
+    def test_listing_text_renders_as_text(self, live_app, page):
+        """WEB-08: listing fields from external sources can't inject markup or script links."""
+        write_prefs(live_app, k=40)
+        seed_listing(live_app, "xss-1", address=f"{XSS} 9 Evil St, Brooklyn",
+                     description=f"About {XSS}", url="javascript:window.__xss=2",
+                     source="evil", inferred_amenities=[XSS])
+        open_app(page, live_app)
+        card = page.locator(f'{CARDS}[data-id="xss-1"]')
+        expect(card.locator(".addr")).to_contain_text(XSS)
+        card.locator('button[data-act="details"]').click()
+        expect(page.locator("#detail-title")).to_contain_text(XSS)
+        expect(page.locator("#detail-body")).to_contain_text(f"About {XSS}")
+        assert page.locator("#grid img, #detail-dialog img").count() == 0
+        assert page.locator('#detail-dialog a[href^="javascript"]').count() == 0
+        assert page.evaluate("window.__xss") is None
+
+    def test_place_names_render_as_text(self, live_app, page):
+        """WEB-08: user-entered place names are escaped in chips, cards, and the editor."""
+        write_prefs(live_app, places=[{
+            "name": XSS, "street": "30 Hudson St", "city": "New York",
+            "address": "30 Hudson St, New York", "lat": 40.7195, "lon": -74.0089,
+            "limit": "soft", "max_min": 90}])
+        open_app(page, live_app)
+        expect(page.locator("#filters-bar")).to_contain_text(XSS)
+        expect(page.locator(CARDS).first.locator(".facts")).to_contain_text(XSS)
+        page.locator("#btn-prefs").click()
+        expect(page.locator("#places-list .p-name")).to_have_value(XSS)
+        assert page.locator("#filters-bar img, #grid img, #places-list img").count() == 0
+        assert page.evaluate("window.__xss") is None
+
+    def test_network_failure_is_reported_not_thrown(self, live_app, page):
+        """WEB-09: a failed request surfaces as a toast instead of an uncaught error."""
+        open_app(page, live_app)
+        page.route("**/api/feedback", lambda r: r.abort())
+        page.locator(CARDS).first.locator('button[data-act="like"]').click()
+        expect(page.locator("#toast")).to_contain_text("can't reach")
+        expect(page.locator("#btn-compare")).to_be_hidden()
+
+    def test_stale_response_does_not_overwrite_newer_view(self, live_app, page):
+        """WEB-26: a slow 'similar' response can't replace results requested after it."""
+        open_app(page, live_app)
+        page.evaluate("""() => { const f = window.fetch;
+            window.fetch = (u, o) => String(u).includes('/api/similar')
+              ? new Promise(r => setTimeout(r, 600)).then(() => f(u, o)) : f(u, o); }""")
+        page.locator(CARDS).first.locator('button[data-act="similar"]').click()
+        with page.expect_response(lambda r: "/api/similar" in r.url):
+            page.locator('#modes button[data-alpha="1.0"]').click()
+        page.wait_for_timeout(200)
+        expect(page.locator("#banner")).to_be_empty()
+
+    def test_feedback_in_similar_view_keeps_trail(self, live_app, page):
+        """WEB-27: liking in the similar view re-ranks it without duplicating the crumb."""
+        open_app(page, live_app)
+        page.locator(CARDS).first.locator('button[data-act="similar"]').click()
+        expect(page.locator("#banner .sep")).to_have_count(1)
+        like_first_card(page)
+        expect(page.locator("#toast")).to_contain_text("liked")
+        page.wait_for_load_state("networkidle")
+        expect(page.locator("#banner .sep")).to_have_count(1)
+
+    def test_enrich_button_in_details(self, live_app, page):
+        """WEB-28: 'Look up amenities' (RentCast listings) is wired up in the details modal."""
+        write_prefs(live_app, k=40)
+        seed_listing(live_app, "rc-1", source="rentcast", address="2 Test St, Brooklyn, NY")
+        open_app(page, live_app)
+        page.locator(f'{CARDS}[data-id="rc-1"] button[data-act="details"]').click()
+        page.locator('#detail-body button[data-act="enrich"]').click()
+        expect(page.locator("#toast")).to_contain_text("no RentCast API key")
+        expect(page.locator('#detail-body button[data-act="enrich"]')).to_be_enabled()
+
+    def test_saved_boroughs_prefilled(self, live_app, page):
+        """WEB-33: saved boroughs show as checked (so re-saving doesn't silently drop them)."""
+        write_prefs(live_app, boroughs=["Brooklyn"])
+        open_app(page, live_app)
+        page.locator("#btn-prefs").click()
+        expect(page.locator('#check-boroughs input[value="Brooklyn"]')).to_be_checked()
+        expect(page.locator('#check-boroughs input[value="Queens"]')).not_to_be_checked()
+
+    def test_enter_in_prefs_saves(self, live_app, page):
+        """WEB-34: Enter in a preferences field saves (it used to trigger Cancel)."""
+        open_app(page, live_app)
+        page.locator("#btn-prefs").click()
+        page.locator('#prefs-form input[name="max_price"]').fill("4100")
+        page.locator('#prefs-form input[name="max_price"]').press("Enter")
+        expect(page.locator("#toast")).to_contain_text("preferences saved")
+        saved = json.loads((live_app.app_dir / "preferences.json").read_text())
+        assert saved["max_price"] == 4100
+
+    def test_dialog_closes_only_on_backdrop(self, live_app, page):
+        """WEB-35: clicking a dialog's own padding keeps it open; the backdrop closes it."""
+        open_app(page, live_app)
+        page.locator("#btn-prefs").click()
+        dialog = page.locator("#prefs-dialog")
+        box = dialog.bounding_box()
+        page.mouse.click(box["x"] + 4, box["y"] + 4)
+        expect(dialog).to_be_visible()
+        page.mouse.click(5, box["y"] + 20)
+        expect(dialog).to_be_hidden()
+
+    def test_escape_closes_update_menu(self, live_app, page):
+        """WEB-40: Escape closes the Update menu."""
+        open_app(page, live_app)
+        page.locator("#btn-update").click()
+        expect(page.locator("#update-menu")).to_be_visible()
+        expect(page.locator("#btn-update")).to_have_attribute("aria-expanded", "true")
+        page.keyboard.press("Escape")
+        expect(page.locator("#update-menu")).to_be_hidden()
+
+    def test_affordable_map_pin_is_legible(self, live_app, page):
+        """WEB-25: the card's 'affordable' badge style doesn't bleed into map pins."""
+        open_app(page, live_app)
+        colors = page.evaluate("""() => {
+            const el = document.createElement('div');
+            el.className = 'price-pin afford';
+            document.body.append(el);
+            const s = getComputedStyle(el);
+            return [s.color, s.backgroundColor]; }""")
+        assert colors[0] != colors[1]

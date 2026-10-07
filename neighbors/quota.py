@@ -10,10 +10,10 @@ monthly quota (they're already throttled per-run by SafeSession).
 
 from __future__ import annotations
 
-import json
-import sqlite3
 import time
 from pathlib import Path
+
+from .store import open_db
 
 # MONTHLY_LIMITS is the provider's REAL tier ceiling (what you pay for /
 # what the dashboard shows). SOFT_STOP is where WE stop fetching — below the
@@ -23,8 +23,10 @@ MONTHLY_LIMITS = {"rentcast": 50}
 SOFT_STOP = {"rentcast": 45}
 WARN_AT = {"rentcast": 35}
 
-_SCHEMA = "CREATE TABLE IF NOT EXISTS quota (provider TEXT, month TEXT, n INTEGER, " \
-          "PRIMARY KEY (provider, month));"
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS quota (provider TEXT, month TEXT, n INTEGER,
+                                  PRIMARY KEY (provider, month));
+"""
 
 
 def current_month() -> str:
@@ -33,53 +35,37 @@ def current_month() -> str:
 
 class QuotaLedger:
     """Persistent {provider: {month: count}} counter, stored in the shared
-    SQLite database (`store.db`, table `quota`). A legacy quota.json is imported
-    once on first open."""
+    SQLite database (`store.db`, table `quota`).
+
+    save() applies record() calls as increments to the stored count rather than
+    overwriting it, so concurrent runs (CLI and web UI) both get counted;
+    set_used() is an explicit absolute override."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
-        self._counts = self._load()
-        if not self._counts and self._migrate_legacy_json():
-            self._counts = self._load()
-
-    def _connect(self) -> sqlite3.Connection:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.path, timeout=5.0)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.executescript(_SCHEMA)
-        return conn
-
-    def _load(self) -> dict:
-        conn = self._connect()
-        try:
-            counts: dict[str, dict[str, int]] = {}
+        self._counts: dict[str, dict[str, int]] = {}
+        self._added: dict[tuple[str, str], int] = {}   # unsaved increments
+        self._overridden: set[tuple[str, str]] = set()  # unsaved set_used()
+        with open_db(self.path, _SCHEMA) as conn:
             for provider, month, n in conn.execute("SELECT provider, month, n FROM quota"):
-                counts.setdefault(provider, {})[month] = n
-        finally:
-            conn.close()
-        return counts
-
-    def _migrate_legacy_json(self) -> bool:
-        legacy = self.path.parent / "quota.json"
-        if legacy == self.path or not legacy.exists():
-            return False
-        try:
-            self._counts = json.loads(legacy.read_text())
-        except (json.JSONDecodeError, OSError):
-            return False
-        self.save()
-        return True
+                self._counts.setdefault(provider, {})[month] = n
 
     def save(self) -> None:
-        conn = self._connect()
-        try:
-            conn.execute("DELETE FROM quota")
+        with open_db(self.path, _SCHEMA) as conn:
             conn.executemany(
-                "INSERT INTO quota (provider, month, n) VALUES (?, ?, ?)",
-                [(p, m, n) for p, months in self._counts.items() for m, n in months.items()])
-            conn.commit()
-        finally:
-            conn.close()
+                "INSERT OR REPLACE INTO quota (provider, month, n) VALUES (?, ?, ?)",
+                [(p, m, self._counts[p][m]) for p, m in self._overridden])
+            conn.executemany(
+                "INSERT INTO quota (provider, month, n) VALUES (?, ?, ?) "
+                "ON CONFLICT(provider, month) DO UPDATE SET n = n + excluded.n",
+                [(p, m, n) for (p, m), n in self._added.items()
+                 if (p, m) not in self._overridden])
+            for p, m in set(self._added) | self._overridden:
+                row = conn.execute("SELECT n FROM quota WHERE provider = ? AND month = ?",
+                                   (p, m)).fetchone()
+                self._counts[p][m] = row[0]
+        self._added.clear()
+        self._overridden.clear()
 
     def spent(self, provider: str, month: str | None = None) -> int:
         return self._counts.get(provider, {}).get(month or current_month(), 0)
@@ -88,13 +74,16 @@ class QuotaLedger:
         if n <= 0:
             return
         month = current_month()
-        self._counts.setdefault(provider, {})
-        self._counts[provider][month] = self._counts[provider].get(month, 0) + n
+        months = self._counts.setdefault(provider, {})
+        months[month] = months.get(month, 0) + n
+        self._added[(provider, month)] = self._added.get((provider, month), 0) + n
 
     def set_used(self, provider: str, n: int) -> None:
         """Overwrite this month's count — for syncing with the provider's own
         dashboard (this ledger only sees calls made through this app)."""
-        self._counts.setdefault(provider, {})[current_month()] = max(0, n)
+        month = current_month()
+        self._counts.setdefault(provider, {})[month] = max(0, n)
+        self._overridden.add((provider, month))
 
     def allow(self, provider: str) -> tuple[bool, str]:
         """(allowed, reason). Providers without a monthly limit always pass."""

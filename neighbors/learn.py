@@ -17,6 +17,7 @@ Guardrails, in order of importance:
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -29,7 +30,7 @@ SPREAD_FLOOR = 0.05  # avoids divide-by-zero when likes agree perfectly
 
 
 def learn_weights(prefs: Preferences, liked: list[Listing],
-                  defaults: dict | None = None) -> dict | None:
+                  defaults: dict[str, float] | None = None) -> dict[str, float] | None:
     """Return blended weights, or None when there isn't enough feedback."""
     defaults = defaults or DEFAULT_WEIGHTS
     if len(liked) < MIN_LIKES:
@@ -53,17 +54,21 @@ def learn_weights(prefs: Preferences, liked: list[Listing],
 
 # ---------- persistence ----------
 
-def load_weights(path: Path) -> dict | None:
-    if not path.exists():
-        return None
+def load_weights(path: Path) -> dict[str, float] | None:
+    """Saved weights, or None if the file is missing or not a complete,
+    well-formed weight set (one finite, non-negative number per feature)."""
     try:
         data = json.loads(path.read_text())
-        # only accept a complete, well-formed weight set
-        return data if set(data) == set(DEFAULT_WEIGHTS) else None
-    except (json.JSONDecodeError, TypeError):
+    except (OSError, ValueError):
         return None
+    if not isinstance(data, dict) or set(data) != set(DEFAULT_WEIGHTS):
+        return None
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool)
+               and math.isfinite(v) and v >= 0 for v in data.values()):
+        return None
+    return data
 
 
-def save_weights(path: Path, weights: dict) -> None:
+def save_weights(path: Path, weights: dict[str, float]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(weights, indent=1))

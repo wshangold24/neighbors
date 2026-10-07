@@ -296,3 +296,31 @@ class TestListingValidation:
     def test_accepts_reasonable_listing(self):
         assert L().validate()
         assert L(beds=0, sqft=None, lat=None, lon=None).validate()
+
+    def test_rejects_missing_core_numbers_instead_of_raising(self):
+        for field in ("price", "beds", "baths"):
+            assert not L(**{field: None}).validate()
+
+
+class TestMissingData:
+    def test_distance_tolerates_missing_price_beds_baths(self):
+        # a malformed stored record passes the gate (unknown ≠ disqualified),
+        # so the soft score must not raise on it either — mild penalty instead
+        q = Query.from_preferences(Preferences(max_price=3000))
+        for field in ("price", "beds", "baths"):
+            d, parts = distance(q, L(**{field: None}), explain=True)
+            assert parts[field] == pytest.approx(0.4)
+            assert d > 0
+
+    def test_seed_with_missing_price_does_not_raise(self):
+        seed = Query.from_listing(L(price=None))
+        assert seed.price is None
+        _, parts = distance(seed, L(), explain=True)
+        assert parts["price"] == pytest.approx(0.4)
+
+    def test_nearest_neighborhood_display_name_keeps_apostrophe(self):
+        from neighbors.models import nearest_neighborhood
+        lat, lon = NEIGHBORHOOD_COORDS["hell's kitchen"]
+        assert nearest_neighborhood(lat, lon) == "Hell's Kitchen"
+        lat, lon = NEIGHBORHOOD_COORDS["bedford-stuyvesant"]
+        assert nearest_neighborhood(lat, lon) == "Bedford-Stuyvesant"

@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
+from typing import Iterable
+
+from .base import resolve_secret
 
 log = logging.getLogger("neighbors.socrata")
 
@@ -35,14 +37,7 @@ HOUSING_CONNECT_BUILDING = "nibs-na6y"   # Advertised lotteries, by building
 
 
 def resolve_app_token(explicit: str | None = None) -> str | None:
-    if explicit:
-        return explicit.strip()
-    env = os.environ.get("NYC_APP_TOKEN", "").strip()
-    if env:
-        return env
-    if TOKEN_FILE.exists():
-        return TOKEN_FILE.read_text().strip() or None
-    return None
+    return resolve_secret(explicit, "NYC_APP_TOKEN", TOKEN_FILE)
 
 
 def soda_get(session, dataset: str, params: dict,
@@ -65,9 +60,12 @@ def soda_get(session, dataset: str, params: dict,
     if isinstance(data, dict):   # Socrata errors come back as a dict
         log.warning("socrata: error from %s: %s", dataset, data.get("message", data))
         return []
-    return data
+    if not isinstance(data, list):
+        log.warning("socrata: unexpected response from %s", dataset)
+        return []
+    return [row for row in data if isinstance(row, dict)]
 
 
-def soql_in(values) -> str:
+def soql_in(values: Iterable) -> str:
     """Render a SoQL IN(...) list of quoted strings: ['1','2'] -> \"'1','2'\"."""
     return ",".join("'" + str(v).replace("'", "") + "'" for v in values)

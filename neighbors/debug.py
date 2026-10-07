@@ -18,8 +18,10 @@ import json
 import logging
 import os
 import platform
+import re
 import sys
 import time
+from contextlib import suppress
 from pathlib import Path
 
 from . import __version__
@@ -27,6 +29,7 @@ from . import __version__
 DEBUG_DIR = Path.home() / ".neighbors" / "debug"
 KEEP_REPORTS = 25            # newest reports kept; older ones pruned
 REDACTED = "***REDACTED***"
+_SECRET_ARG = re.compile(r"key|token|secret|password", re.IGNORECASE)
 _seq = itertools.count()     # disambiguates multiple saves in one process
 
 
@@ -66,8 +69,16 @@ class DebugSession:
             root.setLevel(logging.DEBUG)
 
     def add_secret(self, value: str | None) -> None:
+        """Register a value to scrub from the report. Very short values are
+        ignored: replacing them everywhere would mangle unrelated text."""
         if value and len(value.strip()) >= 6:
             self.secrets.add(value.strip())
+
+    def _redacted_args(self) -> dict:
+        """Args with credential-looking options masked by name, so a key is
+        hidden even if it was never registered via add_secret()."""
+        return {k: (REDACTED if v and _SECRET_ARG.search(k) else v)
+                for k, v in self.args.items()}
 
     # ---------- report assembly ----------
 
@@ -105,7 +116,7 @@ class DebugSession:
                 "platform": platform.platform(),
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                 "duration_s": round(time.time() - self.started, 2),
-                "args": self.args,
+                "args": self._redacted_args(),
             },
             "preferences": self.prefs.to_dict() if self.prefs else None,
             "http": http,
@@ -123,7 +134,9 @@ class DebugSession:
         directory.mkdir(parents=True, exist_ok=True)
         text = json.dumps(self.build(), indent=2, default=str)
         for secret in self.secrets:
-            text = text.replace(secret, REDACTED)
+            # also the JSON-escaped form (quotes, backslashes, non-ASCII)
+            for form in {secret, json.dumps(secret)[1:-1]}:
+                text = text.replace(form, REDACTED)
         # pid + per-process counter guarantee unique, chronologically sortable
         # names even for saves within the same second.
         ts = time.strftime("%Y%m%d-%H%M%S")
@@ -137,7 +150,5 @@ class DebugSession:
     def _prune(directory: Path) -> None:
         reports = sorted(directory.glob("run_*.json"))
         for old in reports[:-KEEP_REPORTS]:
-            try:
+            with suppress(OSError):
                 old.unlink()
-            except OSError:
-                pass

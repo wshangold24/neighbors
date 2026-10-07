@@ -1,14 +1,14 @@
-"""Demo provider: deterministic synthetic NYC listings.
+"""Demo provider: deterministic synthetic NYC listings, no network.
 
-Used automatically when live providers return nothing (blocked, offline),
-so the KNN pipeline is always testable. No network requests.
+Test-only: it generates fixtures for the test suite and is deliberately not
+registered in PROVIDERS, so the app never shows synthetic listings.
 """
 
 from __future__ import annotations
 
 import random
 
-from ..models import AMENITIES, Listing, NEIGHBORHOOD_COORDS, Preferences
+from ..models import AMENITIES, NEIGHBORHOOD_COORDS, Listing, Preferences, _display_name
 from .base import Provider
 
 # Rough per-neighborhood 1BR median rents used to synthesize plausible prices.
@@ -41,6 +41,7 @@ class DemoProvider(Provider):
     name = "demo"
 
     def __init__(self, session=None, n: int = 400, seed: int = 7):
+        super().__init__(session)
         self.n = n
         self.seed = seed
 
@@ -64,7 +65,7 @@ class DemoProvider(Provider):
                 source=self.name,
                 url=f"https://example.com/listing/{i}",
                 address=f"{rng.randint(20, 950)} {rng.choice(STREETS)} #{rng.randint(1, 6)}{rng.choice('ABCDEF')}",
-                neighborhood=hood.title(),
+                neighborhood=_display_name(hood),
                 price=price,
                 beds=beds,
                 baths=baths,

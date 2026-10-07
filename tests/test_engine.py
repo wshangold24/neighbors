@@ -147,16 +147,6 @@ class TestStore:
         s1.save()
         assert len(Store(tmp_path / "store.db")) == 1
 
-    def test_migrates_legacy_json_store(self, tmp_path):
-        # a genuine old JSON store next to where the DB will live is imported once
-        rec = {"listing": {"id": "rc-1", "address": "5 A St", "source": "rentcast",
-                           "url": "u", "neighborhood": "williamsburg", "price": 3000,
-                           "beds": 1, "baths": 1}, "first_seen": 1.0, "last_seen": 2.0,
-               "price_history": [[1.0, 3000]], "sources": {"rentcast": "u"}}
-        (tmp_path / "store.json").write_text(json.dumps({"5 a st": rec}))
-        db = Store(tmp_path / "store.db")        # opening the DB migrates the JSON
-        assert len(db) == 1 and db.find("rc-1").address == "5 A St"
-
     def test_identity_normalization(self):
         assert identity(L(address="123 Kent Ave, Apt 4B")) == \
                identity(L(address="123 KENT AVE APT 4B"))
@@ -467,3 +457,38 @@ class TestEngineCli:
         r2 = run_cli(["weights", "--reset-weights"], tmp_path)
         assert r2.returncode == 0
         assert not (tmp_path / ".neighbors" / "weights.json").exists()
+
+# --------------------------------------------------------------------------
+# Regression: malformed / partial data must never raise
+# --------------------------------------------------------------------------
+
+class TestRobustness:
+    def test_price_floor_gate_tolerates_missing_price(self):
+        prefs = Preferences(max_price=3500, min_price=2000, beds=1)
+        assert [l.id for l in gate(prefs, [L(price=None)])] == ["t1"]
+
+    def test_location_gate_tolerates_half_known_coords(self):
+        half = L(neighborhood="", lat=40.70, lon=None)
+        assert [l.id for l in gate(PREFS, [half])] == ["t1"]
+
+    def test_rank_tolerates_missing_price_and_beds(self, tmp_path):
+        listings = [L(id="np", price=None), L(id="nb", beds=None), L(id="ok")]
+        fb = Feedback(tmp_path / "store.db")
+        fb.like("ok")
+        ranked = rank(PREFS, listings, fb)
+        assert {r.listing.id for r in ranked} == {"np", "nb"}
+
+    def test_manifest_skips_malformed_entries(self, tmp_path):
+        m = Manifest(tmp_path / "manifest.jsonl")
+        m.path.write_text('[1, 2]\n{"provider": "rentcast"}\n')
+        good = m.record("rentcast", PREFS, listings_found=5)
+        assert m.latest_covering("rentcast", PREFS, max_age_s=60) == good
+
+    def test_load_weights_rejects_non_numeric_values(self, tmp_path):
+        p = tmp_path / "weights.json"
+        for bad in ({**DEFAULT_WEIGHTS, "price": "3"},
+                    {**DEFAULT_WEIGHTS, "price": -1.0},
+                    list(DEFAULT_WEIGHTS)):
+            p.write_text(json.dumps(bad))
+            assert load_weights(p) is None
+        assert load_weights(tmp_path / "missing.json") is None

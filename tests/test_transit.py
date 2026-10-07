@@ -96,3 +96,13 @@ class TestEstimates:
         est = estimate_commute(*WILLIAMSBURG, *MIDTOWN)  # L → 4/5/6 area
         assert [s.kind for s in est.steps].count("transfer") == 1
         assert [s.kind for s in est.steps] == ["walk", "ride", "transfer", "ride", "walk"]
+
+
+def test_same_nearest_station_at_both_ends_is_a_walk():
+    # both points are nearest to the same station but too far apart to be a
+    # trivial walk: riding "from Inwood-207 St to Inwood-207 St" is meaningless
+    a, b = (40.875, -73.9198), (40.861, -73.9198)
+    assert nearest_station(*a).name == nearest_station(*b).name
+    est = estimate_commute(*a, *b)
+    assert est.kind == "walk"
+    assert [s.kind for s in est.steps] == ["walk"]

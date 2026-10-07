@@ -35,11 +35,13 @@
   .stats { display: flex; gap: 14px; align-items: baseline; }
   header .stat { color: var(--dim); font-size: 13px; }
   header .stat b { color: var(--ink); font-weight: 600; }
-  .stat-quota { color: var(--dim); opacity: .8; }        /* supply/quota: quietest thing up here */
   /* author display rules (flex, grid, …) beat the browser's [hidden] rule, so
      make the attribute win everywhere */
   [hidden] { display: none !important; }
   .spacer { flex: 1; }
+  /* inline text-style button inside a sentence */
+  button.link { background: none; border: none; color: var(--accent);
+                text-decoration: underline; padding: 0; font-size: inherit; }
   .actions { display: flex; align-items: center; gap: 8px; }
   button { background: var(--card); color: var(--ink); border: 1px solid var(--line);
            border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13.5px;
@@ -115,7 +117,6 @@
   #fetch-prompt { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
                   background: var(--accent-soft); border: 1px solid var(--accent);
                   border-radius: 12px; padding: 9px 14px; margin: 0 0 16px; font-size: 13.5px; }
-  #fetch-prompt .spacer { flex: 1; }
   #fetch-prompt button { font-size: 12.5px; padding: 5px 12px; }
   #setup-banner { background: var(--card); border: 1px solid var(--accent);
                   border-radius: 14px; padding: 16px 18px; margin: 4px 0 18px; }
@@ -128,14 +129,11 @@
   #setup-banner .sb-note { font-size: 12px; color: var(--dim); margin-top: 8px; }
   #stale-note { background: #fff7e6; border: 1px solid #f0c36d; color: #7a5b00;
                 border-radius: 10px; padding: 9px 13px; margin: 0 0 12px; font-size: 13.5px; }
-  #stale-note .link { background: none; border: none; color: var(--accent);
-                      text-decoration: underline; cursor: pointer; padding: 0; font-size: inherit; }
   #whatsnew { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
               background: var(--accent-soft); border: 1px solid var(--line);
               border-radius: 12px; padding: 10px 14px; margin: 0 0 16px;
               font-size: 13.5px; color: var(--ink); }
   #whatsnew .wn-title { font-weight: 600; }
-  #whatsnew .spacer { flex: 1; }
   #whatsnew button { font-size: 12.5px; padding: 4px 12px; }
   .crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .crumbs .sep { color: var(--dim); }
@@ -150,8 +148,6 @@
   .empty .empty-fails { display: inline-block; text-align: left; margin: 10px auto;
            padding-left: 20px; }
   .empty .empty-fails li { margin: 2px 0; }
-  .empty .link { background: none; border: none; color: var(--accent);
-           text-decoration: underline; cursor: pointer; padding: 0; font-size: inherit; }
 
   /* ---------- map view ---------- */
   .map-wrap { position: relative; }
@@ -191,14 +187,11 @@
                transform: translate(-50%, -60%);
                text-shadow: 0 0 3px #fff, 1px 1px 0 #fff, -1px 1px 0 #fff,
                             1px -1px 0 #fff, -1px -1px 0 #fff, 0 2px 5px rgba(0,0,0,.4); }
-  .map-pop { font: 13px -apple-system, sans-serif; }
-  .map-pop a { color: var(--accent); }
 
   /* ---------- card: glance zone + detail zone ---------- */
   .card { position: relative; background: var(--card); border: 1px solid var(--line);
           border-radius: 16px; padding: 18px 18px 12px; box-shadow: var(--shadow);
           transition: box-shadow .2s, transform .2s; cursor: pointer; }
-  .card .corner button, .card .foot button, .trust .verify-now { cursor: pointer; }
   .card:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
   .card.liked { border-color: var(--like); }
   .card.stretch { opacity: .78; }
@@ -210,7 +203,7 @@
            background: var(--accent-soft); border-radius: 999px; padding: 2px 9px; }
   .drop { color: var(--good); font-size: 13px; font-weight: 600; }
   .new { color: var(--warn); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
-  .afford { font-size: 11px; font-weight: 600; color: var(--warn); background: #f6eede;
+  .afford-tag { font-size: 11px; font-weight: 600; color: var(--warn); background: #f6eede;
             border-radius: 999px; padding: 2px 8px; }
   .facts { color: var(--ink); font-size: 14px; margin-top: 2px; }
   .facts .commute-inline { color: var(--dim); }
@@ -219,7 +212,6 @@
   .addr .hood { color: var(--ink); font-weight: 500; }
   .stations { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px;
               color: var(--dim); margin-top: 7px; }
-  .stations .line { color: var(--ink); font-weight: 700; }
 
   /* corner actions — revealed on hover where hover exists */
   .corner { position: absolute; top: 14px; right: 14px; display: flex; gap: 6px; }
@@ -235,12 +227,8 @@
           border-top: 1px solid var(--line-soft); padding-top: 9px; }
   .foot button { font-size: 12.5px; padding: 5px 12px; color: var(--dim); }
   .foot button:hover { color: var(--ink); }
-  .chev { transition: transform .2s; display: inline-block; }
-  .card.open .chev { transform: rotate(180deg); }
 
   /* ---------- detail zone ---------- */
-  .detail { display: none; margin-top: 12px; }
-  .card.open .detail { display: block; }
   .detail section { border-top: 1px solid var(--line-soft); padding: 10px 0; }
   .detail h4 { margin: 0 0 8px; font-size: 11px; font-weight: 600;
                letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
@@ -309,7 +297,6 @@
   .checks label { display: flex; align-items: center; gap: 6px; margin: 2px 0;
                   font-size: 13px; color: var(--ink); cursor: pointer; }
   .checks input { width: auto; accent-color: var(--accent); }
-  .checks label.sourced { color: var(--ink); }
   .src-badge { color: var(--good); font-weight: 700; }
   .amen-note { color: var(--dim); font-size: 12px; margin: 2px 0 6px; line-height: 1.4; }
   .pref-sec-h { font: 600 12px -apple-system, sans-serif; text-transform: uppercase;
@@ -330,6 +317,7 @@
   .tri .n { font-size: 12.5px; padding: 3px 11px; border-radius: 999px; cursor: pointer;
             user-select: none; border: 1px solid var(--line); background: var(--card);
             color: var(--ink); text-transform: capitalize; transition: all .12s; }
+  .tri .n:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .tri .n[data-state="1"] { border-color: var(--good); color: var(--good); background: #eef5f0; }
   .tri .n[data-state="1"]::before { content: "✓ "; }
   .tri .n[data-state="2"] { border-color: var(--like); color: var(--like); background: #f7ebe9;
@@ -409,7 +397,6 @@
                   flex-direction: column; gap: 2px; }
   #detail-title .sub { font: 400 12.5px/1.4 -apple-system, sans-serif; color: var(--dim); }
   .detail-scroll { overflow: auto; max-height: 78vh; padding: 4px 20px 18px; }
-  #detail-dialog .detail { display: block; margin: 0; }
   #detail-dialog .detail section:first-child { border-top: none; }
   .detail-actions { display: flex; gap: 8px; padding: 12px 20px;
                     border-top: 1px solid var(--line); }
@@ -437,18 +424,19 @@
   <div class="actions">
     <button id="btn-prefs">Preferences</button>
     <div class="menu-wrap">
-      <button id="btn-update" class="primary" title="Update your listings">
+      <button id="btn-update" class="primary" title="Update your listings"
+              aria-haspopup="menu" aria-expanded="false" aria-controls="update-menu">
         Update
-        <svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       </button>
-      <div class="menu" id="update-menu" hidden>
-        <button class="menu-item" data-action="refresh">
+      <div class="menu" id="update-menu" role="menu" hidden>
+        <button class="menu-item" role="menuitem" data-action="refresh">
           <span class="mi-title">Refresh</span>
           <span class="hint">re-rank now · free</span></button>
-        <button class="menu-item" data-action="verify">
+        <button class="menu-item" role="menuitem" data-action="verify">
           <span class="mi-title" id="mi-verify">Verify all</span>
           <span class="hint">check buildings vs NYC registries · free</span></button>
-        <button class="menu-item emph" data-action="fetch">
+        <button class="menu-item emph" role="menuitem" data-action="fetch">
           <span class="mi-title">Fetch new listings</span>
           <span class="hint" id="mi-fetch-hint">pull from sources · uses monthly quota</span></button>
       </div>
@@ -457,7 +445,23 @@
 </header>
 
 <main>
-  <div id="setup-banner" hidden></div>
+  <!-- First-run card: an optional invitation to add a RentCast key (the app
+       already works without one). Shown until a key is saved or it's dismissed. -->
+  <div id="setup-banner" hidden>
+    <h3>You're ready to search</h3>
+    <p>The app already works — it's free via NYC Housing Connect, no key needed.
+      Want market-rate listings too? Paste a free
+      <a href="https://www.rentcast.io/api" target="_blank" rel="noopener">RentCast API key ↗</a>.
+      You only do this once — it's saved securely on your computer and remembered next time.</p>
+    <div class="sb-row">
+      <input id="setup-rc-key" type="password" aria-label="RentCast API key"
+             placeholder="paste your RentCast key (optional)">
+      <button type="button" id="setup-rc-save" class="primary">Save key</button>
+      <button type="button" id="setup-skip" class="ghost">Not now</button>
+    </div>
+    <div class="sb-note">Stored only in <code>~/.neighbors</code> on this computer (owner-only, 0600),
+      never uploaded and never shown again. You can change it anytime in Preferences → Advanced.</div>
+  </div>
   <div id="whatsnew" hidden></div>
   <div class="toolbar">
     <div class="rank"
@@ -468,9 +472,11 @@
         <button data-alpha="0.6" class="active">Balanced</button>
         <button data-alpha="0.3">Like my likes</button>
       </div>
-      <button id="adv-toggle" title="fine-tune the blend">advanced</button>
+      <button id="adv-toggle" title="fine-tune the blend" aria-expanded="false"
+              aria-controls="alpha-wrap">advanced</button>
       <div id="alpha-wrap">
-        likes <input type="range" id="alpha" min="0.1" max="1" step="0.05" value="0.6"> criteria
+        likes <input type="range" id="alpha" min="0.1" max="1" step="0.05" value="0.6"
+                    aria-label="blend between your likes and your criteria"> criteria
         <span id="alpha-val">0.60</span>
         <span id="alpha-hint" class="alpha-hint" hidden>— like a place first</span>
       </div>
@@ -484,8 +490,18 @@
             title="See your liked apartments side by side"></button>
   </div>
   <div id="filters-bar" hidden></div>
-  <div id="fetch-prompt" hidden></div>
-  <div id="stale-note" hidden></div>
+  <!-- shown after any preference change: the store may not yet hold listings
+       for the new criteria -->
+  <div id="fetch-prompt" hidden>
+    <span>Preferences changed — fetch fresh listings for the new criteria?</span>
+    <span class="spacer"></span>
+    <button type="button" id="fp-fetch" class="primary">Fetch new listings</button>
+    <button type="button" id="fp-dismiss" class="ghost">dismiss</button>
+  </div>
+  <div id="stale-note" hidden>
+    Including older listings so you have enough to browse — some may already be rented.
+    <button type="button" id="stale-fetch" class="link">Fetch fresh listings</button>
+  </div>
   <p id="banner"></p>
   <div class="grid" id="grid"></div>
   <div class="map-wrap" id="map-wrap" hidden>
@@ -511,7 +527,7 @@
 
 <dialog id="prefs-dialog">
   <h3 style="margin-top:0">Preferences</h3>
-  <form method="dialog" id="prefs-form">
+  <form id="prefs-form">
     <div class="pref-sec-h">The basics</div>
     <label>Max monthly rent ($)</label><input name="max_price" type="number">
     <label>Min monthly rent ($, 0 = none)</label><input name="min_price" type="number">
@@ -550,7 +566,7 @@
              works without it via NYC Housing Connect.
              <a href="https://www.rentcast.io/api" target="_blank" rel="noopener">get a free key ↗</a></label>
       <div class="rc-key-row">
-        <input id="rc-key" type="password" placeholder="paste a key to add (leave blank to remove)">
+        <input id="rc-key" type="password" aria-label="RentCast API key" placeholder="paste a key to add (leave blank to remove)">
         <button type="button" id="rc-key-save">Save key</button>
         <span id="rc-key-status"></span>
       </div>
@@ -572,8 +588,8 @@
     </div>
 
     <div class="buttons">
-      <button value="cancel">Cancel</button>
-      <button type="button" id="btn-save" class="primary">Save &amp; re-rank</button>
+      <button type="button" value="cancel">Cancel</button>
+      <button type="submit" id="btn-save" class="primary">Save &amp; re-rank</button>
     </div>
   </form>
 </dialog>
@@ -599,24 +615,84 @@
   </div>
 </dialog>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 "use strict";
-// Tiny declarative core: `state` in, render(state) out. Every user action is
-// an API call followed by a refresh — the server owns all real state on disk.
-const state = { results: [], meta: null, mode: "search", seed: null, crumbs: [], liked: [], view: "list", area: null, mapDots: false };
+// Tiny declarative core: `state` in, render() out. Every user action is an API
+// call followed by a refresh — the server owns all real state on disk.
+const state = {
+  meta: null,             // /api/state: prefs, options, counts, quota
+  results: [],            // what the grid and map show (search or similar mode)
+  stale: false,           // results were backfilled with older listings
+  diagnostic: null,       // why the filters ruled everything out (empty state)
+  error: null,            // backend failure loading results
+  mode: "search",         // "search" | "similar"
+  seed: null,             // similar mode: the listing we're finding neighbors of
+  crumbs: [],             // similar mode: breadcrumb trail of seeds
+  liked: [],              // the shortlist shown in the compare dialog
+  alpha: 0.6,             // the one blend parameter; presets and slider both set it
+  view: "list",           // "list" | "map"
+  area: null,             // drawn search area: {bbox: [s,w,n,e]} or {poly: [[lat,lon],…]}
+  mapDots: false,         // map pins shrunk to dots
+};
 const $ = (sel) => document.querySelector(sel);
 
-// one consistent icon set (inline SVG, stroke = currentColor)
+// ---------- core helpers ----------
+
+// Listing data comes from external sources, so every untrusted string that
+// lands in innerHTML goes through esc().
+const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ESCAPES[c]);
+const pretty = (s) => esc(String(s).replaceAll("_", " "));   // "in_unit" -> "in unit"
+const titleize = (s) => String(s).replace(/\b\w/g, c => c.toUpperCase());
+
+// external link; anything but http(s) (javascript:, data:) renders nothing
+function extLink(url, label, attrs = "") {
+  if (!/^https?:\/\//i.test(url || "")) return "";
+  return `<a href="${esc(url)}" target="_blank" rel="noopener"${attrs}>${label}</a>`;
+}
+
+// Never throws: network failures and non-JSON responses come back as
+// {error}, the same shape the server uses, so callers have one path to check.
+async function request(path, init) {
+  let res;
+  try { res = await fetch(path, init); }
+  catch { return { error: "can't reach the Neighbors server — is it still running?" }; }
+  try { return await res.json(); }
+  catch { return { error: `unexpected response from the server (HTTP ${res.status})` }; }
+}
+const api = {
+  get: (path) => request(path),
+  post: (path, body) => request(path, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+};
+
+const money = (n) => (n == null || isNaN(n)) ? "—" : "$" + Number(n).toLocaleString();
+const bedsTxt = (b) => (b == null || isNaN(b)) ? "?" : (+b === 0 ? "Studio" : `${+b} bd`);
+const bathsTxt = (b) => (b == null || isNaN(b)) ? "?" : `${+b}`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+let _toastTimer = 0;
+function toast(msg) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(_toastTimer);   // a newer toast gets its full time on screen
+  _toastTimer = setTimeout(() => el.classList.remove("show"), 2000);
+}
+
+// one consistent icon set (inline SVG, stroke = currentColor, decorative)
+const svg = (body, cls = "i") =>
+  `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
 const I = {
-  train: `<svg class="i" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 21l1.5-4M15 21l-1.5-4"/><circle cx="9" cy="14" r=".5"/><circle cx="15" cy="14" r=".5"/></svg>`,
-  walk: `<svg class="i" viewBox="0 0 24 24"><circle cx="13" cy="4" r="1.6"/><path d="M13 7l-2.5 5 3 3 1 6M10.5 12L8 14l-1.5 6M13 7l3.5 2.5L19 12"/></svg>`,
-  swap: `<svg class="i" viewBox="0 0 24 24"><path d="M7 4v13M7 4L4 7M7 4l3 3M17 20V7M17 20l3-3M17 20l-3-3"/></svg>`,
-  heart: `<svg class="i" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9c-1.2-2.8.6-6 3.8-6C9 5 11 6.5 12 8c1-1.5 3-3 5.2-3 3.2 0 5 3.2 3.8 6-2 4.5-9 9-9 9z"/></svg>`,
-  x: `<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
-  similar: `<svg class="i" viewBox="0 0 24 24"><path d="M4 9c2-3 6-3 8 0s6 3 8 0M4 15c2-3 6-3 8 0s6 3 8 0"/></svg>`,
-  chev: `<svg class="i chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>`,
+  train: svg(`<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 21l1.5-4M15 21l-1.5-4"/><circle cx="9" cy="14" r=".5"/><circle cx="15" cy="14" r=".5"/>`),
+  walk: svg(`<circle cx="13" cy="4" r="1.6"/><path d="M13 7l-2.5 5 3 3 1 6M10.5 12L8 14l-1.5 6M13 7l3.5 2.5L19 12"/>`),
+  swap: svg(`<path d="M7 4v13M7 4L4 7M7 4l3 3M17 20V7M17 20l3-3M17 20l-3-3"/>`),
+  heart: svg(`<path d="M12 20s-7-4.5-9-9c-1.2-2.8.6-6 3.8-6C9 5 11 6.5 12 8c1-1.5 3-3 5.2-3 3.2 0 5 3.2 3.8 6-2 4.5-9 9-9 9z"/>`),
+  x: svg(`<path d="M6 6l12 12M18 6L6 18"/>`),
+  similar: svg(`<path d="M4 9c2-3 6-3 8 0s6 3 8 0M4 15c2-3 6-3 8 0s6 3 8 0"/>`),
+  chev: svg(`<path d="M6 9l6 6 6-6"/>`),
 };
 const STEP_ICON = { walk: I.walk, ride: I.train, transfer: I.swap };
 
@@ -638,7 +714,7 @@ const DARK_GLYPH = new Set(["N", "Q", "R", "W"]);
 const lineBullets = (lines) => (lines || "").split("/").filter(Boolean).map(ln => {
   const bg = LINE_COLOR[ln] || "#6b6b6b";
   const fg = DARK_GLYPH.has(ln) ? "#1a1a1a" : "#fff";
-  return `<span class="bullet" style="background:${bg};color:${fg}">${ln}</span>`;
+  return `<span class="bullet" style="background:${bg};color:${fg}">${esc(ln)}</span>`;
 }).join("");
 
 // "real rental" trust signal — level + plain-language label computed server-side
@@ -648,42 +724,7 @@ function trustDisplay(t) {
   const level = t.level || "unverified";
   const cls = level === "confirmed" ? "ok" : level === "caution" ? "warn" : "dim";
   const icon = cls === "ok" ? "✓" : cls === "warn" ? "⚠" : "·";
-  return { level, cls, icon, txt: t.label || "not yet verified" };
-}
-function verifyText(r) { return trustDisplay(r.trust); }
-
-// per-listing "verify this now" — checks one building against NYC registries
-async function verifyOne(id) {
-  const r = await api.post("/api/verify", { id });
-  if (r.error) { toast("verify failed: " + r.error); return null; }
-  toast(r.trust && r.trust.label ? "checked: " + r.trust.label : "checked");
-  return r.trust;
-}
-
-// one compare-table row summarizing each column's verification status
-function verifyRow(apts) {
-  return `<tr><th>Verified</th>${apts.map(a => {
-    const v = verifyText(a);
-    return `<td><span class="trust ${v.cls}">${v.icon} ${v.txt}</span></td>`;
-  }).join("")}</tr>`;
-}
-
-const api = {
-  get: (path) => fetch(path).then(r => r.json()),
-  post: (path, body) => fetch(path, { method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body) }).then(r => r.json()),
-};
-
-const money = (n) => (n == null || isNaN(n)) ? "—" : "$" + Number(n).toLocaleString();
-const bedsTxt = (b) => (b == null || isNaN(b)) ? "?" : (+b === 0 ? "Studio" : `${+b} bd`);
-const bathsTxt = (b) => (b == null || isNaN(b)) ? "?" : `${+b}`;
-
-function toast(msg) {
-  const el = $("#toast");
-  el.textContent = msg;
-  el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 2000);
+  return { level, cls, icon, txt: esc(t.label || "not yet verified") };
 }
 
 // ---------- compatibility panel ----------
@@ -693,18 +734,17 @@ const FEATURES = ["price", "location", "beds", "baths", "sqft", "amenities"];
 
 function featureNote(f, r) {
   const d = r.deltas || {};
-  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   if (f === "price" && d.price > 0) return `${money(d.price)} over budget`;
   if (f === "location" && d.location_km != null)
-    return `${d.location_in ? "in " + titleize(d.location_in) + " · " : ""}${d.location_km} km from your nearest area`;
+    return `${d.location_in ? "in " + esc(titleize(d.location_in)) + " · " : ""}${esc(d.location_km)} km from your nearest area`;
   if (f === "beds" && d.beds < 0) return `${plural(-d.beds, "bed")} fewer than you want`;
-  if (f === "beds" && d.beds > 0) return `${plural(d.beds, "extra bed")}`;
-  if (f === "baths" && d.baths < 0) return `fewer baths than you want`;
-  if (f === "sqft" && d.sqft_unknown) return `size not listed`;
+  if (f === "beds" && d.beds > 0) return plural(d.beds, "extra bed");
+  if (f === "baths" && d.baths < 0) return "fewer baths than you want";
+  if (f === "sqft" && d.sqft_unknown) return "size not listed";
   if (f === "sqft" && d.sqft < 0) return `${-d.sqft} ft² under your minimum`;
-  if (f === "amenities" && d.amenities_unknown) return `amenities not listed`;
-  if (f === "amenities" && d.amenities_missing.length)
-    return `missing ${d.amenities_missing.join(", ").replaceAll("_", " ")}`;
+  if (f === "amenities" && d.amenities_unknown) return "amenities not listed";
+  if (f === "amenities" && d.amenities_missing?.length)
+    return `missing ${d.amenities_missing.map(pretty).join(", ")}`;
   return null;
 }
 
@@ -717,7 +757,7 @@ function breakdownPanel(r) {
   if (r.match === null) return "";
   const weights = state.meta?.weights || {};
   const rows = FEATURES.map(f => {
-    const part = r.parts[f] ?? 0;
+    const part = r.parts?.[f] ?? 0;
     return { f, fit: Math.max(0, Math.round(100 * (1 - part))),
              deficit: part * (weights[f] || 1) };
   }).sort((a, b) => b.deficit - a.deficit);
@@ -747,46 +787,47 @@ function breakdownPanel(r) {
 // ---------- card ----------
 
 function card(r) {
-  const drop = r.price_history.length >= 2 &&
-               r.price_history.at(-1)[1] < r.price_history.at(-2)[1]
-    ? `<span class="drop">↓ ${money(r.price_history.at(-2)[1] - r.price_history.at(-1)[1])}</span>` : "";
-  const isNew = r.flags.includes("NEW") ? `<span class="new">NEW</span>` : "";
+  const ph = r.price_history || [];
+  const drop = ph.length >= 2 && ph.at(-1)[1] < ph.at(-2)[1]
+    ? `<span class="drop">↓ ${money(ph.at(-2)[1] - ph.at(-1)[1])}</span>` : "";
+  const isNew = (r.flags || []).includes("NEW") ? `<span class="new">NEW</span>` : "";
   const applyBy = (r.description || "").match(/apply by ([^·]+?) on Housing Connect/);
   const afford = (r.amenities || []).includes("income_restricted")
-    ? `<span class="afford" title="Housing Connect affordable lottery — rent shown is an AMI-based estimate, not exact">affordable${applyBy ? ` · apply by ${applyBy[1].trim()}` : " · est."}</span>` : "";
+    ? `<span class="afford-tag" title="Housing Connect affordable lottery — rent shown is an AMI-based estimate, not exact">affordable${applyBy ? ` · apply by ${esc(applyBy[1].trim())}` : " · est."}</span>` : "";
 
   // glance zone: the commute TOTAL lives next to the facts (the #2 decision
-  // driver after price); the step-by-step stays in the detail zone
+  // driver after price); the step-by-step stays in the details modal
   const commuteInline = (r.commutes || [])
     .filter(c => c.minutes !== null)
-    .map(c => `<span class="commute-inline">${c.name} <b>~${c.minutes}m</b></span>`)
+    .map(c => `<span class="commute-inline">${esc(c.name)} <b>~${esc(c.minutes)}m</b></span>`)
     .join(" · ");
   const stationsLine = (r.stations || []).length
     ? `<div class="stations" title="stations within a 10-minute walk">${
-        r.stations.map(s => `<span>${lineBullets(s.lines)}${s.name} · ${s.walk_min} min</span>`).join("")}</div>` : "";
+        r.stations.map(s => `<span>${lineBullets(s.lines)}${esc(s.name)} · ${esc(s.walk_min)} min</span>`).join("")}</div>` : "";
 
-  const vt = verifyText(r);
-  const canVerify = vt.level !== "confirmed";
+  const vt = trustDisplay(r.trust);
   const trust = `<div class="trust ${vt.cls}"
     title="checked against NYC's building registries (PLUTO/HPD) plus how it's listed">${vt.icon} ${vt.txt}${
-    canVerify ? ` · <button class="act verify-now" data-act="verify-one">verify now</button>` : ""}</div>`;
+    vt.level !== "confirmed" ? ` · <button class="act verify-now" data-act="verify-one">verify now</button>` : ""}</div>`;
+  const likeTip = r.liked ? "liked — click to clear" : "like: pulls similar places up";
 
   return `
   <div class="card ${r.liked ? "liked" : ""} ${r.match !== null && r.match < 60 ? "stretch" : ""}"
-       data-id="${r.id}">
+       data-id="${esc(r.id)}">
     <div class="corner">
       <button class="act ${r.liked ? "on-like" : ""}" data-act="${r.liked ? "clear" : "like"}"
-              title="${r.liked ? "liked — click to clear" : "like: pulls similar places up"}">${I.heart}</button>
-      <button class="act" data-act="hide" title="hide: never show again">${I.x}</button>
+              title="${likeTip}" aria-label="${likeTip}" aria-pressed="${!!r.liked}">${I.heart}</button>
+      <button class="act" data-act="hide" title="hide: never show again"
+              aria-label="hide: never show again">${I.x}</button>
     </div>
     <div class="row1">
       <span class="price">${money(r.price)}</span>
       ${r.match !== null ? `<span class="match">${r.match}%</span>` : ""}
       ${drop} ${isNew} ${afford}
     </div>
-    <div class="facts">${bedsTxt(r.beds)} · ${r.baths} ba${r.sqft ? ` · ${r.sqft} ft²` : ""}
+    <div class="facts">${bedsTxt(r.beds)} · ${bathsTxt(r.baths)} ba${r.sqft ? ` · ${esc(r.sqft)} ft²` : ""}
       ${commuteInline ? ` · ${commuteInline}` : ""}</div>
-    <div class="addr"><span class="hood">${r.neighborhood || "?"}</span> — ${r.address}</div>
+    <div class="addr"><span class="hood">${esc(r.neighborhood || "?")}</span> — ${esc(r.address)}</div>
     ${stationsLine}
     ${trust}
     <div class="foot">
@@ -796,25 +837,39 @@ function card(r) {
   </div>`;
 }
 
+// ---------- details modal ----------
 // The full breakdown, commutes, amenities, price history and source links —
 // shown in a modal (not inline) so opening one card never reflows the row.
+
+// on-demand RentCast property lookup — only for RentCast listings, clearly
+// labeled as spending one API call
+function enrichRow(r) {
+  if (!r.sources?.rentcast) return "";
+  if (r.enriched)
+    return `<div class="enrich-row enrich-note">✓ property record checked for amenities</div>`;
+  return `<div class="enrich-row"><button class="act" data-act="enrich">Look up amenities</button>` +
+         ` · uses 1 RentCast API call</div>`;
+}
+
 function detailBody(r) {
-  const hist = r.price_history.length >= 2
+  const ph = r.price_history || [];
+  const hist = ph.length >= 2
     ? `<section><h4>Price history</h4><div class="hist">${
-        r.price_history.map(h => money(h[1])).join(" → ")}</div></section>` : "";
-  const derivedSet = new Set((r.derived_amenities || []).map(a => a.toLowerCase()));
-  const inferred = r.inferred_amenities || [];
-  const amenityChips = r.amenities.map(a => derivedSet.has(a.toLowerCase())
-    ? `<span class="chip derived" title="confirmed from NYC building/property records">${a.replaceAll("_", " ")} ✓</span>`
-    : `<span class="chip">${a.replaceAll("_", " ")}</span>`).join("");
+        ph.map(h => money(h[1])).join(" → ")}</div></section>` : "";
+
+  const listed = r.amenities || [], inferred = r.inferred_amenities || [];
+  const derived = new Set((r.derived_amenities || []).map(a => a.toLowerCase()));
+  const amenityChips = listed.map(a => derived.has(a.toLowerCase())
+    ? `<span class="chip derived" title="confirmed from NYC building/property records">${pretty(a)} ✓</span>`
+    : `<span class="chip">${pretty(a)}</span>`).join("");
   const inferredChips = inferred.map(a =>
-    `<span class="chip inferred" title="likely — inferred from the building's size/age, not confirmed">~ ${a.replaceAll("_", " ")}</span>`).join("");
-  const amenities = (r.amenities.length || inferred.length)
-    ? `<section><h4>Amenities</h4>
-        ${r.amenities.length ? `<div class="chips">${amenityChips}</div>` : ""}
-        ${inferred.length ? `<div class="chips inferred-row"><span class="inferred-label">likely (unconfirmed):</span> ${inferredChips}</div>` : ""}
-        ${enrichRow(r)}
-      </section>` : `<section><h4>Amenities</h4>${enrichRow(r)}</section>`;
+    `<span class="chip inferred" title="likely — inferred from the building's size/age, not confirmed">~ ${pretty(a)}</span>`).join("");
+  const amenities = `<section><h4>Amenities</h4>
+      ${listed.length ? `<div class="chips">${amenityChips}</div>` : ""}
+      ${inferred.length ? `<div class="chips inferred-row"><span class="inferred-label">likely (unconfirmed):</span> ${inferredChips}</div>` : ""}
+      ${enrichRow(r)}
+    </section>`;
+
   let blendBar = "";
   if (r.blend && (r.blend.pref + r.blend.seed) > 0.01) {
     const cp = 1 / (r.blend.pref + 0.1), cs = 1 / (r.blend.seed + 0.1);
@@ -825,43 +880,45 @@ function detailBody(r) {
         <span class="from-seed" style="width:${100 - share}%"></span></span>
       <span>likes</span></div></section>`;
   }
+
   const commuteDetail = (r.commutes || []).length
-    ? `<section><h4>Commutes</h4>${r.commutes.map(c => `
-        <div class="rowc"><span class="place">${c.name}</span>
+    ? `<section class="commutes"><h4>Commutes</h4>${r.commutes.map(c => `
+        <div class="rowc"><span class="place">${esc(c.name)}</span>
           ${c.minutes !== null
-            ? `<a href="${c.apple}" target="_blank" rel="noopener">~${c.minutes} min ↗</a>`
+            ? extLink(c.apple, `~${esc(c.minutes)} min ↗`) || `<span>~${esc(c.minutes)} min</span>`
             : `<span>no estimate</span>`}
-          <a href="${c.google}" target="_blank" rel="noopener" style="font-weight:400">Google Maps ↗</a>
+          ${extLink(c.google, "Google Maps ↗", ' style="font-weight:400"')}
         </div>
         ${(c.steps || []).length ? `<ul class="steps">${c.steps.map(s => `
-          <li>${STEP_ICON[s.kind] || ""} <span class="s-min">${s.minutes} min</span> ${s.label}</li>`).join("")}
+          <li>${STEP_ICON[s.kind] || ""} <span class="s-min">${esc(s.minutes)} min</span> ${esc(s.label)}</li>`).join("")}
         </ul>` : ""}`).join("")}
       </section>` : "";
+
+  const maps = r.maps || {};
   const links = `<section><div class="links">${
-    Object.entries(r.sources).filter(([src]) => src !== "rentcast")
-      .map(([src, url]) => `<a href="${url}" target="_blank" rel="noopener">${src} ↗</a>`)
-      .concat([`<a href="${r.maps.realtor}" target="_blank" rel="noopener">realtor ↗</a>`,
-               `<a href="${r.maps.apple}" target="_blank" rel="noopener"> maps ↗</a>`,
-               `<a href="${r.maps.google}" target="_blank" rel="noopener">gmaps ↗</a>`])
+    Object.entries(r.sources || {}).filter(([src]) => src !== "rentcast")
+      .map(([src, url]) => extLink(url, `${esc(src)} ↗`))
+      .concat([extLink(maps.realtor, "realtor ↗"), extLink(maps.apple, " maps ↗"),
+               extLink(maps.google, "gmaps ↗")])
       .join("")}</div></section>`;
   const about = r.description
-    ? `<section><h4>About</h4><div class="hist">${r.description}</div></section>` : "";
+    ? `<section><h4>About</h4><div class="hist">${esc(r.description)}</div></section>` : "";
   return breakdownPanel(r) + about + commuteDetail + amenities + blendBar + hist + links;
 }
 
 function findResult(id) {
   return state.results.find(r => r.id === id)
       || state.liked.find(r => r.id === id)
-      || (state.seed && state.seed.id === id ? state.seed : null);
+      || (state.seed?.id === id ? state.seed : null);
 }
 
 function openDetail(id) {
   const r = findResult(id);
   if (!r) return;
-  const vt = verifyText(r);
+  const vt = trustDisplay(r.trust);
   $("#detail-title").innerHTML =
-    `${money(r.price)} · ${bedsTxt(r.beds)} · ${r.baths} ba` +
-    `<span class="sub">${r.neighborhood || "?"} — ${r.address}</span>`;
+    `${money(r.price)} · ${bedsTxt(r.beds)} · ${bathsTxt(r.baths)} ba` +
+    `<span class="sub">${esc(r.neighborhood || "?")} — ${esc(r.address)}</span>`;
   $("#detail-body").innerHTML =
     `<div class="trust ${vt.cls}" style="margin:0 0 10px">${vt.icon} ${vt.txt}</div>` +
     `<div class="detail">${detailBody(r)}</div>`;
@@ -872,26 +929,17 @@ function openDetail(id) {
   likeBtn.innerHTML = `${I.heart} ${r.liked ? "Liked — click to unlike" : "Like"}`;
   $("#detail-hide").innerHTML = `${I.x} Hide this rental`;
   const dv = $("#detail-verify");
-  dv.hidden = (r.trust?.level || "unverified") === "confirmed";
+  dv.hidden = vt.level === "confirmed";
   dv.disabled = false; dv.textContent = "Verify this building";
   const dlg = $("#detail-dialog");
   dlg.dataset.id = r.id;
-  if (!dlg.open) dlg.showModal();   // re-render safely if already open (after enrich)
+  if (!dlg.open) dlg.showModal();   // re-render in place if already open
 }
 $("#detail-close").addEventListener("click", () => $("#detail-dialog").close());
 
-// on-demand RentCast property lookup — only for RentCast listings, clearly
-// labeled as spending one API call
-function enrichRow(r) {
-  if (!(r.sources && r.sources.rentcast)) return "";
-  if (r.enriched)
-    return `<div class="enrich-row enrich-note">✓ property record checked for amenities</div>`;
-  return `<div class="enrich-row"><button class="act" data-act="enrich">Look up amenities</button>` +
-         ` · uses 1 RentCast API call</div>`;
-}
-
-// like / unlike / hide straight from the details modal
-$(".detail-actions").addEventListener("click", async (e) => {
+// like / unlike / hide / verify / enrich straight from the details modal
+// (the enrich button lives in the body, the rest in the action bar)
+$("#detail-dialog").addEventListener("click", async (e) => {
   const btn = e.target.closest("button.act");
   if (!btn) return;
   const id = $("#detail-dialog").dataset.id;
@@ -900,74 +948,34 @@ $(".detail-actions").addEventListener("click", async (e) => {
     btn.disabled = true; btn.textContent = "looking up…";
     const r = await api.post("/api/enrich", { id });
     if (r.error) { toast(r.error); btn.disabled = false; btn.textContent = "Look up amenities"; return; }
-    toast(r.added && r.added.length
+    toast(r.added?.length
       ? "added: " + r.added.join(", ").replaceAll("_", " ")
       : "no extra amenities in the property record");
-    await loadResults();               // refresh data + quota
-    if (findResult(id)) openDetail(id); // re-render the modal in place
-    return;
+    return refreshViews();   // re-renders the open modal with the new data
   }
   if (act === "verify-one") {
     btn.disabled = true; btn.textContent = "checking…";
     const t = await verifyOne(id);
+    btn.disabled = false; btn.textContent = "Verify this building";
     if (t) {
       const vt = trustDisplay(t);
       const div = $("#detail-body .trust");
-      if (div) { div.className = `trust ${vt.cls}`; div.style.margin = "0 0 10px";
-                 div.innerHTML = `${vt.icon} ${vt.txt}`; }
+      div.className = `trust ${vt.cls}`;
+      div.innerHTML = `${vt.icon} ${vt.txt}`;
       btn.hidden = vt.level === "confirmed";
-      loadResults();               // refresh grid ranking behind the modal
+      refreshViews();   // re-rank the grid behind the modal
     }
-    btn.disabled = false; btn.textContent = "Verify this building";
     return;
   }
-  await api.post("/api/feedback", { id, verdict: act });
-  toast(act === "hide" ? "hidden — won't show again"
-        : act === "like" ? "liked — pulls similar places up" : "cleared");
   $("#detail-dialog").close();
-  state.mode === "similar" && state.seed ? loadSimilar(state.seed.id) : loadResults();
+  sendFeedback(id, act);
 });
-
-// every modal closes on a click outside its content (on the backdrop)
-document.querySelectorAll("dialog").forEach(d =>
-  d.addEventListener("click", (e) => { if (e.target === d) d.close(); }));
 
 // ---------- render ----------
 
 function render() {
-  const m = state.meta;
-  if (m) {
-    $("#stat-store").innerHTML =
-      `<b>${m.store.active}</b> available · ` +
-      `<b>${m.verification?.confirmed || 0}</b> verified · ` +
-      `<b>${m.feedback.liked}</b> liked` +
-      (m.weights_learned ? " · learning from your likes" : "");
-    // fetch size + quota live quietly on the Fetch menu item, not the header
-    const q = m.quota.rentcast, fh = $("#mi-fetch-hint"), lim = m.prefs?.fetch_limit || 1000;
-    if (fh) fh.textContent = `up to ${lim} listings` +
-      (q ? ` · RentCast ${q.used}/${q.limit} used this month` : "");
-    // compare button appears only once there's a shortlist to compare
-    const liked = m.feedback?.liked || 0;
-    const cbtn = $("#btn-compare");
-    cbtn.hidden = liked === 0;
-    cbtn.innerHTML = `${I.heart} Liked · ${liked}`;
-    // Update-menu's Verify item shows how many listings still need checking
-    const pending = m.verification?.pending || 0;
-    const mv = $("#mi-verify");
-    if (mv) mv.textContent = pending > 0 ? `Verify all (${pending})` : "Verify all";
-  }
-  if (state.mode === "similar" && state.crumbs.length) {
-    const trail = state.crumbs.map((s, i) => {
-      const label = `${money(s.price)} ${bedsTxt(s.beds)} · ${s.address.split(",")[0]}`;
-      return i === state.crumbs.length - 1
-        ? `<span class="sep">▸</span><span class="here">${label}</span>`
-        : `<span class="sep">▸</span><button data-crumb="${i}">${label}</button>`;
-    }).join("");
-    $("#banner").innerHTML =
-      `<span class="crumbs"><button data-crumb="-1">search</button>${trail}</span>`;
-  } else {
-    $("#banner").innerHTML = "";
-  }
+  renderHeader();
+  renderCrumbs();
   // scan aid: strong matches first, then a labeled stretch section
   const strong = state.results.filter(r => r.match === null || r.match >= 60);
   const stretchy = state.results.filter(r => r.match !== null && r.match < 60);
@@ -978,93 +986,455 @@ function render() {
       : "");
   renderEmpty();
   renderModes();
-  const sn = $("#stale-note");
-  if (state.stale && state.results.length) {
-    sn.innerHTML = `Including older listings so you have enough to browse — some may already be rented. ` +
-      `<button type="button" id="stale-fetch" class="link">Fetch fresh listings</button>`;
-    sn.hidden = false;
-    const b = $("#stale-fetch"); if (b) b.onclick = () => doFetch();
-  } else {
-    sn.hidden = true;
-  }
-  updateArea();
+  $("#stale-note").hidden = !(state.stale && state.results.length);
+  $("#area-active").hidden = !state.area;
+  if (state.area) $("#area-count").textContent = `${state.results.length} in this area`;
   renderSetup();
   renderFilters();
   if (state.view === "map") renderMap();   // keep the map in sync after re-rank
   // if a details modal is open, refresh it so its compatibility/match reflect
   // the current preferences (changed via dialog, chips, or the map)
   const dlg = $("#detail-dialog");
-  if (dlg.open) { const r = findResult(dlg.dataset.id); if (r) openDetail(r.id); }
+  if (dlg.open) openDetail(dlg.dataset.id);
 }
+
+function renderHeader() {
+  const m = state.meta;
+  if (!m) return;
+  const liked = m.feedback?.liked || 0;
+  $("#stat-store").innerHTML =
+    `<b>${m.store?.active ?? 0}</b> available · ` +
+    `<b>${m.verification?.confirmed || 0}</b> verified · ` +
+    `<b>${liked}</b> liked` +
+    (m.weights_learned ? " · learning from your likes" : "");
+  // fetch size + quota live quietly on the Fetch menu item, not the header
+  const q = m.quota?.rentcast, lim = m.prefs?.fetch_limit || 1000;
+  $("#mi-fetch-hint").textContent = `up to ${lim} listings` +
+    (q ? ` · RentCast ${q.used}/${q.limit} used this month` : "");
+  // compare button appears only once there's a shortlist to compare
+  const cbtn = $("#btn-compare");
+  cbtn.hidden = liked === 0;
+  cbtn.innerHTML = `${I.heart} Liked · ${liked}`;
+  // Update-menu's Verify item shows how many listings still need checking
+  const pending = m.verification?.pending || 0;
+  $("#mi-verify").textContent = pending > 0 ? `Verify all (${pending})` : "Verify all";
+}
+
+function renderCrumbs() {
+  if (state.mode !== "similar" || !state.crumbs.length) { $("#banner").innerHTML = ""; return; }
+  const trail = state.crumbs.map((s, i) => {
+    const label = esc(`${money(s.price)} ${bedsTxt(s.beds)} · ${(s.address || "").split(",")[0]}`);
+    return i === state.crumbs.length - 1
+      ? `<span class="sep">▸</span><span class="here">${label}</span>`
+      : `<span class="sep">▸</span><button data-crumb="${i}">${label}</button>`;
+  }).join("");
+  $("#banner").innerHTML =
+    `<span class="crumbs"><button data-crumb="-1">search</button>${trail}</span>`;
+}
+
+// breadcrumb navigation: -1 = back to search, N = back to that seed
+$("#banner").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-crumb]");
+  if (!btn) return;
+  const idx = +btn.dataset.crumb;
+  if (idx === -1) return loadResults();
+  state.crumbs = state.crumbs.slice(0, idx + 1);
+  loadSimilar(state.crumbs[idx].id, false);
+});
+
+// "Balanced" and "Like my likes" blend results toward liked places; with zero
+// likes they're mathematically identical to "My criteria," so we disable them
+// (with a why) rather than let them look broken.
+function renderModes() {
+  const noLikes = !(state.meta?.feedback?.liked > 0);
+  document.querySelectorAll("#modes button").forEach(b => {
+    b.disabled = noLikes && +b.dataset.alpha < 1;
+    b.title = b.disabled
+      ? "Like a few places first — then this blends results toward what you liked" : "";
+  });
+  // the blend slider/advanced control only does something once there are likes
+  const slider = $("#alpha");
+  slider.disabled = noLikes;
+  slider.title = noLikes ? "Like a place first — then blend toward your likes" : "";
+  $("#alpha-hint").hidden = !noLikes;
+  $("#adv-toggle").title = noLikes ? "Like a place first to fine-tune the blend" : "fine-tune the blend";
+}
+
+function setAlpha(value, fromSlider = false) {
+  state.alpha = +value;
+  $("#alpha").value = state.alpha;
+  $("#alpha-val").textContent = state.alpha.toFixed(2);
+  document.querySelectorAll("#modes button").forEach(b =>
+    b.classList.toggle("active", !fromSlider && +b.dataset.alpha === state.alpha));
+  loadResults();
+}
+$("#modes").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (btn) setAlpha(btn.dataset.alpha);
+});
+$("#adv-toggle").addEventListener("click", () => {
+  const open = $("#alpha-wrap").classList.toggle("open");
+  $("#adv-toggle").setAttribute("aria-expanded", open);
+});
+$("#alpha").addEventListener("change", (e) => setAlpha(e.target.value, true));
+
+// ---------- empty state ----------
+// If the store is genuinely empty, prompt a fetch. If it has listings but the
+// hard filters ruled them ALL out, say which filter and how many — a blank
+// screen with a full store is just confusing.
+const RULE_LABELS = {
+  price_cap: "over your price cap", beds_floor: "fewer bedrooms than you want",
+  sqft_floor: "smaller than your minimum", location: "outside your neighborhoods",
+  borough: "outside your boroughs", amenities: "missing a must-have amenity",
+  not_excluded: "in a neighborhood you excluded",
+};
+function renderEmpty() {
+  const el = $("#empty");
+  el.hidden = state.results.length > 0;
+  if (el.hidden) return;
+  const d = state.diagnostic;
+  if (state.error) {
+    el.innerHTML = `<p>Something went wrong loading listings:</p>` +
+      `<p><code>${esc(state.error)}</code></p>` +
+      `<p>Check the terminal running the server for the full trace.</p>`;
+  } else if (d?.store) {
+    const fails = Object.entries(d.fails || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `<li><b>${n}</b> ${RULE_LABELS[k] || esc(k)}</li>`).join("");
+    const p = d.prefs || {};
+    el.innerHTML =
+      `<p>You have <b>${d.store}</b> saved listing${d.store > 1 ? "s" : ""}, ` +
+      `but your current filters rule them all out:</p>` +
+      `<ul class="empty-fails">${fails}</ul>` +
+      `<p>Loosen your filters (price cap ${p.max_price ? money(p.max_price) : "—"}, ${esc(p.beds)}+ beds` +
+      `${p.neighborhoods?.length ? `, in ${esc(p.neighborhoods.join(", "))}` : ""}` +
+      `${p.amenities?.length ? `, must-haves: ${esc(p.amenities.join(", "))}` : ""}) ` +
+      `in <button type="button" id="empty-prefs" class="link">Preferences</button>, ` +
+      `or <button type="button" id="empty-fetch" class="link">fetch new listings</button>.</p>`;
+  } else {
+    el.innerHTML = `No listings yet — open the <b>Update</b> menu (top right) and ` +
+      `choose <b>Fetch new listings</b> to pull some in.`;
+  }
+}
+$("#empty").addEventListener("click", (e) => {
+  if (e.target.closest("#empty-prefs")) openPrefs();
+  else if (e.target.closest("#empty-fetch")) doFetch();
+});
+
+// ---------- banners: setup, what's new, fetch prompt, stale note ----------
+
+// First-run card. Shows until a key is saved OR the user dismisses it; both
+// flags live server-side, so the choice sticks across launches.
+function renderSetup() {
+  const m = state.meta;
+  $("#setup-banner").hidden = !(m && !m.rentcast_key_set && !m.setup_dismissed);
+}
+$("#setup-rc-save").addEventListener("click", async () => {
+  const input = $("#setup-rc-key");
+  if (!input.value.trim()) return toast("Paste a key, or choose “Not now”");
+  const r = await api.post("/api/rentcast-key", { key: input.value });
+  if (r.error) return toast(r.error);
+  input.value = "";
+  await loadState();
+  renderSetup();
+  toast("RentCast key saved — fetch to pull market-rate listings");
+});
+$("#setup-skip").addEventListener("click", () => {
+  $("#setup-banner").hidden = true;
+  if (state.meta) state.meta.setup_dismissed = true;
+  api.post("/api/setup/dismiss", {});
+});
+
+// "What's new since your last visit" — new listings, price drops (highlighting
+// any on liked places), and newly-verified buildings.
+async function loadDigest() {
+  const d = await api.get("/api/digest");
+  const el = $("#whatsnew");
+  if (!d.has_news) { el.hidden = true; return; }
+  const drops = d.price_drops || [], likedDrops = d.liked_drops || [];
+  const bits = [];
+  if (d.new_count) bits.push(`<b>${d.new_count}</b> new listing${d.new_count > 1 ? "s" : ""}`);
+  if (drops.length) bits.push(
+    `<b>${drops.length}</b> price drop${drops.length > 1 ? "s" : ""}` +
+    (likedDrops.length ? ` (<b>${likedDrops.length}</b> on liked ♥)` : ""));
+  if (d.newly_verified) bits.push(`<b>${d.newly_verified}</b> newly verified`);
+  el.innerHTML = `<span class="wn-title">Since your last visit:</span> ${bits.join(" · ")}` +
+    `<span class="spacer"></span><button type="button" id="wn-dismiss" class="ghost">dismiss</button>`;
+  el.hidden = false;
+}
+$("#whatsnew").addEventListener("click", (e) => {
+  if (!e.target.closest("#wn-dismiss")) return;
+  $("#whatsnew").hidden = true;
+  api.post("/api/digest/ack", {});
+});
+
+// After ANY preference change (dialog, chip ×, map area save), offer an easy
+// re-fetch — the store may not yet hold listings for the new criteria.
+const markPrefsDirty = () => { $("#fetch-prompt").hidden = false; };
+const clearPrefsDirty = () => { $("#fetch-prompt").hidden = true; };
+$("#fp-fetch").addEventListener("click", () => doFetch());   // clears the prompt on success
+$("#fp-dismiss").addEventListener("click", clearPrefsDirty);
+$("#stale-fetch").addEventListener("click", () => doFetch());
+
+// ---------- active-filters bar ----------
+// Always-visible summary of the criteria currently shaping results. Chips are
+// color-coded (green = want, red = avoid), individually removable (× updates
+// preferences and re-ranks), and collapse behind "+N more" when there are many.
+let _filtersExpanded = false;
+function buildChips() {
+  const p = state.meta.prefs;
+  const chips = [];
+  const want = (label, rm) => chips.push({ label, cls: "want", rm });
+  if (state.area) chips.push({ label: "◧ drawn area", cls: "area", clearArea: true });
+  else {
+    (p.boroughs || []).forEach(b => want(b, { type: "boroughs", val: b }));
+    (p.neighborhoods || []).forEach(n => want(titleize(n), { type: "neighborhoods", val: n }));
+    if (!(p.boroughs || []).length && !(p.neighborhoods || []).length)
+      chips.push({ label: "anywhere", cls: "neutral" });
+  }
+  (p.exclude_neighborhoods || []).forEach(n =>
+    chips.push({ label: `no ${titleize(n)}`, cls: "avoid", rm: { type: "exclude_neighborhoods", val: n } }));
+  // budget / size: core criteria, not removable
+  if (p.min_price && p.max_price) want(`${money(p.min_price)}–${money(p.max_price)}`);
+  else if (p.max_price) want(`≤ ${money(p.max_price)}`);
+  else if (p.min_price) want(`≥ ${money(p.min_price)}`);
+  want(p.beds === 0 ? "studio+" : `${p.beds}+ bd`);
+  if (p.baths > 1) want(`${p.baths}+ ba`);
+  if (p.min_sqft) want(`≥ ${p.min_sqft} ft²`, { type: "min_sqft" });
+  (p.amenities || []).forEach(a => want(a.replaceAll("_", " "), { type: "amenities", val: a }));
+  (p.places || []).forEach(pl => {
+    if (pl.max_min && (pl.limit === "hard" || pl.limit === "soft"))
+      want(`${pl.name} ${pl.limit === "hard" ? "≤" : "~"} ${pl.max_min}m`, { type: "place", val: pl.name });
+  });
+  if (p.verify_priority === "strong")
+    chips.push({ label: "verified first", cls: "neutral", rm: { type: "verify_priority" } });
+  else if (p.verify_priority === "off")
+    chips.push({ label: "verification off", cls: "neutral", rm: { type: "verify_priority" } });
+  return chips;
+}
+
+function renderFilters() {
+  const el = $("#filters-bar");
+  if (!state.meta?.prefs) { el.hidden = true; return; }
+  const chips = buildChips();
+  const MAX = 8;
+  const collapsible = chips.length > MAX + 1;
+  const shown = collapsible && !_filtersExpanded ? chips.slice(0, MAX) : chips;
+  const html = [`<span class="fbar-label">Showing</span>`];
+  for (const c of shown) {
+    const x = c.clearArea
+      ? `<button class="fchip-x" data-clear-area="1" title="clear" aria-label="clear drawn area">✕</button>`
+      : c.rm
+        ? `<button class="fchip-x" data-rm-type="${c.rm.type}" data-rm-val="${esc(c.rm.val)}"
+             title="remove" aria-label="remove ${esc(c.label)}">✕</button>`
+        : "";
+    html.push(`<span class="fchip ${c.cls}">${esc(c.label)}${x}</span>`);
+  }
+  if (collapsible) html.push(`<button class="fchip more" id="fchip-more">${
+    _filtersExpanded ? "show less" : `+${chips.length - MAX} more`}</button>`);
+  html.push(`<button class="fbar-edit" id="fbar-edit">edit all</button>`);
+  el.innerHTML = html.join("");
+  el.hidden = false;
+}
+$("#filters-bar").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  if (btn.id === "fbar-edit") return openPrefs();
+  if (btn.id === "fchip-more") { _filtersExpanded = !_filtersExpanded; return renderFilters(); }
+  if (btn.dataset.clearArea) return clearArea();
+  if (btn.dataset.rmType) removeFilter(btn.dataset.rmType, btn.dataset.rmVal);
+});
+
+// remove one filter → patch preferences, flag the change, re-rank
+async function removeFilter(type, val) {
+  const p = state.meta.prefs, body = {};
+  if (["boroughs", "neighborhoods", "exclude_neighborhoods", "amenities"].includes(type))
+    body[type] = (p[type] || []).filter(v => v.toLowerCase() !== val.toLowerCase());
+  else if (type === "place")
+    body.places = (p.places || []).map(pl => pl.name === val ? { ...pl, limit: "off" } : pl);
+  else if (type === "verify_priority") body.verify_priority = "gentle";
+  else if (type === "min_sqft") body.min_sqft = null;
+  const r = await api.post("/api/prefs", body);
+  if (r.error) return toast(r.error);
+  markPrefsDirty();
+  loadResults();
+}
+
+// ---------- data flow ----------
+
+async function loadState() {
+  const meta = await api.get("/api/state");
+  if (meta.error) toast(meta.error);
+  else state.meta = meta;
+}
+
+// Results and similar-listing requests can overlap (mode switches, focus
+// refreshes, quick clicks); each takes a ticket and only the newest one is
+// allowed to land, so a slow stale response can't overwrite a newer view.
+let _viewTicket = 0;
+
+async function loadResults() {
+  const ticket = ++_viewTicket;
+  const areaQuery = state.area?.bbox ? `&bbox=${state.area.bbox.join(",")}`
+    : state.area?.poly ? `&poly=${state.area.poly.flat().join(",")}` : "";
+  const [data, meta] = await Promise.all([
+    api.get(`/api/results?alpha=${state.alpha}${areaQuery}`), api.get("/api/state")]);
+  if (ticket !== _viewTicket) return;
+  Object.assign(state, { mode: "search", seed: null, crumbs: [] });
+  state.results = data.results || [];
+  state.stale = !!data.stale;
+  state.diagnostic = data.diagnostic || null;
+  state.error = data.error || null;   // surface backend failures, don't blank
+  if (!meta.error) state.meta = meta;
+  render();
+}
+
+// seed mode: neighbors of one listing; `extendTrail` adds it to the breadcrumbs
+async function loadSimilar(id, extendTrail = true) {
+  const ticket = ++_viewTicket;
+  const [data, meta] = await Promise.all([
+    api.get(`/api/similar?id=${encodeURIComponent(id)}`), api.get("/api/state")]);
+  if (ticket !== _viewTicket) return;
+  if (data.error) return toast(data.error);
+  state.mode = "similar"; state.seed = data.seed; state.results = data.results || [];
+  if (extendTrail) state.crumbs.push(data.seed);
+  if (!meta.error) state.meta = meta;   // header counts change after a like/hide here too
+  render();
+}
+
+// re-fetch the current view (search or similar) without changing it
+const reloadView = () => state.mode === "similar" && state.seed
+  ? loadSimilar(state.seed.id, false) : loadResults();
+
+// after a change to listing data: the view, plus the Liked table if it's open
+async function refreshViews() {
+  if ($("#compare-dialog").open) { await loadLiked(); renderCompare(); }
+  await reloadView();
+}
+
+const FEEDBACK_TOAST = {
+  like: "liked — pulls similar places up", hide: "hidden — won't show again", clear: "cleared",
+};
+async function sendFeedback(id, verdict, announce = true) {
+  const r = await api.post("/api/feedback", { id, verdict });
+  if (r.error) return toast(r.error);
+  if (announce) toast(FEEDBACK_TOAST[verdict]);
+  await refreshViews();
+}
+
+// per-listing "verify this now" — checks one building against NYC registries
+async function verifyOne(id) {
+  const r = await api.post("/api/verify", { id });
+  if (r.error) { toast("verify failed: " + r.error); return null; }
+  toast(r.trust?.label ? "checked: " + r.trust.label : "checked");
+  return r.trust;
+}
+
+// event delegation: one listener handles every card action
+$("#grid").addEventListener("click", async (e) => {
+  const card = e.target.closest(".card");
+  if (!card) return;
+  const id = card.dataset.id;
+  const btn = e.target.closest("button.act");
+  // clicking anywhere on the card that isn't an action button opens details
+  if (!btn || btn.dataset.act === "details") return openDetail(id);
+  const act = btn.dataset.act;
+  if (act === "similar") return loadSimilar(id);
+  if (act === "verify-one") {
+    btn.disabled = true; btn.textContent = "checking…";
+    await verifyOne(id);
+    return reloadView();
+  }
+  sendFeedback(id, act);
+});
+
+// Zero-thought freshness: silently re-rank when the tab regains focus.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && state.mode === "search") loadResults();
+});
 
 // ---------- map view ----------
 // Leaflet + OpenStreetMap tiles (both free / ToS-clean), loaded lazily the
 // first time you open the map so the list stays instant. Priced pins for
-// results, ★ pins for your important places; a pin's popup opens the details.
+// results, ★ pins for your important places; clicking a pin opens its details.
 let _map = null, _mapLayer = null, _areaShape = null;
-function ensureLeaflet(cb) {
-  if (window.L) return cb();
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
-  document.head.appendChild(css);
-  const js = document.createElement("script");
-  js.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-  js.onload = cb;
-  js.onerror = () => toast("couldn't load the map (offline?)");
-  document.head.appendChild(js);
+const AREA_COLOR = "#2563eb";
+const DRAW_STYLE = { color: AREA_COLOR, weight: 2, fillColor: AREA_COLOR, fillOpacity: 0.06 };
+
+// one shared load however many renders ask; resolves false if it failed (a
+// later call retries)
+let _leafletLoad = null;
+function ensureLeaflet() {
+  if (window.L) return Promise.resolve(true);
+  if (_leafletLoad) return _leafletLoad;
+  const base = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+  const css = Object.assign(document.createElement("link"),
+    { rel: "stylesheet", href: base + "leaflet.min.css" });
+  const js = Object.assign(document.createElement("script"), { src: base + "leaflet.min.js" });
+  _leafletLoad = new Promise(resolve => {
+    js.onload = () => resolve(true);
+    js.onerror = () => {
+      css.remove(); js.remove(); _leafletLoad = null;
+      toast("couldn't load the map (offline?)");
+      resolve(false);
+    };
+  });
+  document.head.append(css, js);
+  return _leafletLoad;
 }
+
 function initMap() {
   _map = L.map("map", { scrollWheelZoom: true }).setView([40.71, -73.95], 12);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(_map);
-  attachDraw();   // wire the rectangle/shape drawing once
+  attachDraw();
 }
-function renderMap() {
-  ensureLeaflet(() => {
-    if (!_map) initMap();
-    if (_mapLayer) _mapLayer.remove();
-    _mapLayer = L.layerGroup().addTo(_map);
-    const pts = [];
-    // one minimal pin per rental — beds · baths · rent, StreetEasy-style;
-    // clicking it opens that rental's full details modal directly
-    state.results.filter(r => r.lat && r.lon).forEach(r => {
-      const cls = r.liked ? "liked" : (r.amenities || []).includes("income_restricted") ? "afford" : "";
-      const html = state.mapDots
-        ? `<div class="map-dot ${cls}"></div>`
-        : `<div class="price-pin ${cls}">${bedsTxt(r.beds)} · ${bathsTxt(r.baths)}ba · ${money(r.price)}</div>`;
-      const icon = L.divIcon({ className: "", iconSize: null, html });
-      const marker = L.marker([r.lat, r.lon], { icon, riseOnHover: true }).addTo(_mapLayer);
-      marker.on("click", () => openDetail(r.id));
-      if (state.mapDots) marker.bindTooltip(`${bedsTxt(r.beds)} · ${money(r.price)}`, { direction: "top" });
-      pts.push([r.lat, r.lon]);
-    });
-    // ★ pins for your important places
-    (state.meta?.prefs?.places || []).filter(p => p.lat && p.lon).forEach(p => {
-      const icon = L.divIcon({ className: "", iconSize: null, html: `<div class="place-pin">★</div>` });
-      L.marker([p.lat, p.lon], { icon }).addTo(_mapLayer).bindTooltip(p.name, { direction: "top" });
-      pts.push([p.lat, p.lon]);
-    });
-    drawAreaShape();   // draw the current search area outline, if any
-    // don't refit while a search area is active — keep the user's view
-    if (pts.length && !state.area) _map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
-    setTimeout(() => _map.invalidateSize(), 60);
+
+async function renderMap() {
+  if (!(await ensureLeaflet())) return;
+  if (!_map) initMap();
+  if (_mapLayer) _mapLayer.remove();
+  _mapLayer = L.layerGroup().addTo(_map);
+  const pts = [];
+  // one minimal pin per rental — beds · baths · rent, StreetEasy-style
+  state.results.filter(r => r.lat && r.lon).forEach(r => {
+    const cls = r.liked ? "liked" : (r.amenities || []).includes("income_restricted") ? "afford" : "";
+    const html = state.mapDots
+      ? `<div class="map-dot ${cls}"></div>`
+      : `<div class="price-pin ${cls}">${bedsTxt(r.beds)} · ${bathsTxt(r.baths)}ba · ${money(r.price)}</div>`;
+    const icon = L.divIcon({ className: "", iconSize: null, html });
+    const marker = L.marker([r.lat, r.lon], { icon, riseOnHover: true }).addTo(_mapLayer);
+    marker.on("click", () => openDetail(r.id));
+    if (state.mapDots) marker.bindTooltip(`${bedsTxt(r.beds)} · ${money(r.price)}`, { direction: "top" });
+    pts.push([r.lat, r.lon]);
   });
+  // ★ pins for your important places (Leaflet tooltips are HTML: escape)
+  (state.meta?.prefs?.places || []).filter(p => p.lat && p.lon).forEach(p => {
+    const icon = L.divIcon({ className: "", iconSize: null, html: `<div class="place-pin">★</div>` });
+    L.marker([p.lat, p.lon], { icon }).addTo(_mapLayer).bindTooltip(esc(p.name), { direction: "top" });
+    pts.push([p.lat, p.lon]);
+  });
+  drawAreaShape();
+  // don't refit while a search area is active — keep the user's view
+  if (pts.length && !state.area) _map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
+  setTimeout(() => _map.invalidateSize(), 60);
 }
-// draw the outline of the active search area (rectangle or freehand shape)
+
+// outline of the active search area (rectangle or freehand shape)
 function drawAreaShape() {
   if (_areaShape) { _areaShape.remove(); _areaShape = null; }
   const a = state.area;
   if (!a) return;
-  const style = { color: "#2563eb", weight: 2, dashArray: "6,4", fillColor: "#2563eb", fillOpacity: 0.06 };
+  const style = { ...DRAW_STYLE, dashArray: "6,4" };
   if (a.bbox) {
     const [s, w, n, e] = a.bbox;
     _areaShape = L.rectangle([[s, w], [n, e]], style);
   } else if (a.poly) {
     _areaShape = L.polygon(a.poly, style);
   }
-  if (_areaShape) _areaShape.addTo(_map);
+  _areaShape?.addTo(_map);
 }
+
 function setView(v) {
   state.view = v;
   document.querySelectorAll("#viewtoggle button").forEach(b =>
@@ -1073,108 +1443,24 @@ function setView(v) {
   $("#map-wrap").hidden = v !== "map";
   if (v === "map") renderMap();
 }
-function updateArea() {
-  $("#area-active").hidden = !state.area;
-  if (state.area) $("#area-count").textContent = `${state.results.length} in this area`;
-}
-
-// always-visible summary of the criteria currently shaping results. Chips are
-// color-coded (green = want, red = avoid), individually removable (× updates
-// preferences and re-ranks), and collapse behind "+N more" when there are many.
-const titleize = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
-let _filtersExpanded = false;
-function buildChips() {
-  const p = state.meta.prefs;
-  const money0 = (n) => "$" + Number(n).toLocaleString();
-  const chips = [];
-  if (state.area) chips.push({ label: "◧ drawn area", cls: "area", clear: true });
-  // location — want (green)
-  if (!state.area) {
-    (p.boroughs || []).forEach(b => chips.push({ label: b, cls: "want", rm: { type: "boroughs", val: b } }));
-    (p.neighborhoods || []).forEach(n => chips.push({ label: titleize(n), cls: "want", rm: { type: "neighborhoods", val: n } }));
-    if (!(p.boroughs || []).length && !(p.neighborhoods || []).length)
-      chips.push({ label: "anywhere", cls: "neutral" });
-  }
-  // avoid (red)
-  (p.exclude_neighborhoods || []).forEach(n =>
-    chips.push({ label: `no ${titleize(n)}`, cls: "avoid", rm: { type: "exclude_neighborhoods", val: n } }));
-  // budget / size (want, not removable — core criteria)
-  if (p.min_price && p.max_price) chips.push({ label: `${money0(p.min_price)}–${money0(p.max_price)}`, cls: "want" });
-  else if (p.max_price) chips.push({ label: `≤ ${money0(p.max_price)}`, cls: "want" });
-  else if (p.min_price) chips.push({ label: `≥ ${money0(p.min_price)}`, cls: "want" });
-  chips.push({ label: p.beds === 0 ? "studio+" : `${p.beds}+ bd`, cls: "want" });
-  if (p.baths > 1) chips.push({ label: `${p.baths}+ ba`, cls: "want" });
-  if (p.min_sqft) chips.push({ label: `≥ ${p.min_sqft} ft²`, cls: "want", rm: { type: "min_sqft" } });
-  // amenities (want)
-  (p.amenities || []).forEach(a =>
-    chips.push({ label: a.replaceAll("_", " "), cls: "want", rm: { type: "amenities", val: a } }));
-  // commute limits (want)
-  (p.places || []).forEach(pl => {
-    if (pl.max_min && (pl.limit === "hard" || pl.limit === "soft"))
-      chips.push({ label: `${pl.name} ${pl.limit === "hard" ? "≤" : "~"} ${pl.max_min}m`,
-                   cls: "want", rm: { type: "place", val: pl.name } });
-  });
-  if (p.verify_priority === "strong") chips.push({ label: "verified first", cls: "neutral", rm: { type: "verify_priority" } });
-  else if (p.verify_priority === "off") chips.push({ label: "verification off", cls: "neutral", rm: { type: "verify_priority" } });
-  return chips;
-}
-function renderFilters() {
-  const el = $("#filters-bar");
-  if (!state.meta?.prefs) { el.hidden = true; return; }
-  const chips = buildChips();
-  const MAX = 8;
-  const collapsed = chips.length > MAX + 1 && !_filtersExpanded;
-  const shown = collapsed ? chips.slice(0, MAX) : chips;
-  const html = [`<span class="fbar-label">Showing</span>`];
-  shown.forEach((c, i) => {
-    const x = c.clear ? `<button class="fchip-x" data-clear="1" title="clear">✕</button>`
-            : c.rm ? `<button class="fchip-x" data-rm="${i}" title="remove">✕</button>` : "";
-    html.push(`<span class="fchip ${c.cls}">${c.label}${x}</span>`);
-  });
-  if (collapsed) html.push(`<button class="fchip more" id="fchip-more">+${chips.length - MAX} more</button>`);
-  else if (chips.length > MAX + 1) html.push(`<button class="fchip more" id="fchip-more">show less</button>`);
-  html.push(`<button class="fbar-edit" id="fbar-edit">edit all</button>`);
-  el.innerHTML = html.join("");
-  el.hidden = false;
-  $("#fbar-edit").onclick = () => $("#btn-prefs").click();
-  const more = $("#fchip-more");
-  if (more) more.onclick = () => { _filtersExpanded = !_filtersExpanded; renderFilters(); };
-  el.querySelectorAll(".fchip-x").forEach(btn => btn.onclick = (e) => {
-    e.stopPropagation();
-    if (btn.dataset.clear) { return clearArea(); }
-    const c = shown[+btn.dataset.rm];
-    if (c && c.rm) removeFilter(c.rm);
-  });
-}
-// remove one filter → patch preferences, flag the change, re-rank
-async function removeFilter(rm) {
-  const p = state.meta.prefs, body = {};
-  if (["boroughs", "neighborhoods", "exclude_neighborhoods", "amenities"].includes(rm.type))
-    body[rm.type] = (p[rm.type] || []).filter(v => v.toLowerCase() !== rm.val.toLowerCase());
-  else if (rm.type === "place")
-    body.places = (p.places || []).map(pl => pl.name === rm.val ? { ...pl, limit: "off" } : pl);
-  else if (rm.type === "verify_priority") body.verify_priority = "gentle";
-  else if (rm.type === "min_sqft") body.min_sqft = null;
-  const r = await api.post("/api/prefs", body);
-  if (r.error) return toast(r.error);
-  markPrefsDirty();
-  loadResults();
-}
-const areaQuery = () => state.area?.bbox ? `&bbox=${state.area.bbox.join(",")}`
-  : state.area?.poly ? `&poly=${state.area.poly.flat().join(",")}` : "";
+$("#viewtoggle").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (b) setView(b.dataset.view);
+});
 
 // ---------- drawing a search area ----------
 // Both modes are click-and-drag: press, drag to trace a box or a freehand
 // shape, release to close it (a shape connects back to the first point) and
 // search. Map panning is disabled while drawing.
 let _drawMode = null, _drawTmp = null, _drawPts = [], _drawing = false;
-const DRAW_STYLE = { color: "#2563eb", weight: 2, fillColor: "#2563eb", fillOpacity: 0.06 };
+
 function setDrawMode(mode) {
+  if (!_map) return;   // map library never loaded
   _drawMode = mode;
   const on = !!mode;
   _map.dragging[on ? "disable" : "enable"]();
   _map.doubleClickZoom[on ? "disable" : "enable"]();
-  document.getElementById("map").style.cursor = on ? "crosshair" : "";
+  $("#map").style.cursor = on ? "crosshair" : "";
   $("#draw-hint").hidden = !on;
   $("#draw-hint").textContent = mode === "rect"
     ? "Click and drag to draw a box — release to search."
@@ -1182,11 +1468,13 @@ function setDrawMode(mode) {
   $("#btn-draw-rect").classList.toggle("active", mode === "rect");
   $("#btn-draw-poly").classList.toggle("active", mode === "poly");
 }
+
+// wired once, when the map is created
 function attachDraw() {
   _map.on("mousedown", (e) => {
     if (!_drawMode) return;
     _drawing = true; _drawPts = [e.latlng];
-    if (_drawTmp) { _drawTmp.remove(); _drawTmp = null; }
+    _drawTmp?.remove();
     _drawTmp = _drawMode === "rect"
       ? L.rectangle([e.latlng, e.latlng], DRAW_STYLE).addTo(_map)
       : L.polyline([e.latlng], DRAW_STYLE).addTo(_map);
@@ -1205,14 +1493,14 @@ function attachDraw() {
     } else if (_drawPts.length >= 3) {
       state.area = { poly: _drawPts.map(p => [p.lat, p.lng]) };  // closes to the first point
     }
-    if (_drawTmp) { _drawTmp.remove(); _drawTmp = null; }
+    _drawTmp?.remove(); _drawTmp = null;
     _drawPts = [];
     setDrawMode(null);
     if (state.area) loadResults();
   };
   _map.on("mouseup", finish);
   // if the pointer is released outside the map, still finish the shape
-  document.addEventListener("mouseup", () => { if (_drawing) finish(); });
+  document.addEventListener("mouseup", finish);
 }
 $("#btn-draw-rect").addEventListener("click", () => setDrawMode(_drawMode === "rect" ? null : "rect"));
 $("#btn-draw-poly").addEventListener("click", () => setDrawMode(_drawMode === "poly" ? null : "poly"));
@@ -1230,217 +1518,31 @@ $("#btn-search-area").addEventListener("click", () => {
   loadResults();
 });
 $("#btn-area-clear").addEventListener("click", () => clearArea());
+
 // remove the drawn area, transient or saved-in-preferences, and re-rank
 async function clearArea() {
   state.area = null;
-  if (state.meta?.prefs?.area) { await api.post("/api/area", {}); await loadState(); }
+  if (state.meta?.prefs?.area) {
+    const r = await api.post("/api/area", {});
+    if (r.error) toast(r.error);
+  }
   loadResults();   // back to your borough/neighborhood location; map refits
 }
+
 // explicit opt-in: write the current area into saved preferences (the precise
 // shape becomes the location, and stays active/visible after saving)
 $("#btn-area-save").addEventListener("click", async () => {
   if (!state.area) return;
   const r = await api.post("/api/area", state.area);
   if (r.error) return toast(r.error);
-  toast(r.neighborhoods.length
-    ? `saved this area as your location (covers ${r.neighborhoods.length} neighborhood${r.neighborhoods.length > 1 ? "s" : ""})`
-    : "saved this area as your location");
+  const n = (r.neighborhoods || []).length;
+  toast(n ? `saved this area as your location (covers ${plural(n, "neighborhood")})`
+          : "saved this area as your location");
   await loadState();
-  state.area = state.meta.prefs.area || null;   // keep the saved shape active
+  state.area = state.meta?.prefs?.area || null;   // keep the saved shape active
+  markPrefsDirty();
   loadResults();
 });
-$("#viewtoggle").addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (b) setView(b.dataset.view);
-});
-
-// breadcrumb navigation: -1 = back to search, N = back to that seed
-$("#banner").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-crumb]");
-  if (!btn) return;
-  const idx = +btn.dataset.crumb;
-  if (idx === -1) return loadResults();
-  state.crumbs = state.crumbs.slice(0, idx + 1);
-  loadSimilar(state.crumbs[idx].id, /*fromCrumb=*/true);
-});
-
-// ---------- data flow ----------
-
-async function loadState() { state.meta = await api.get("/api/state"); }
-
-// After ANY preference change (dialog, chip ×, map area save), offer an easy
-// re-fetch — the store may not yet hold listings for the new criteria.
-function markPrefsDirty() {
-  const el = $("#fetch-prompt");
-  el.innerHTML = `<span>Preferences changed — fetch fresh listings for the new criteria?</span>` +
-    `<span class="spacer"></span>` +
-    `<button id="fp-fetch" class="primary">Fetch new listings</button>` +
-    `<button id="fp-dismiss" class="ghost">dismiss</button>`;
-  el.hidden = false;
-  $("#fp-fetch").onclick = () => doFetch();          // doFetch clears this on completion
-  $("#fp-dismiss").onclick = () => clearPrefsDirty();
-}
-function clearPrefsDirty() { $("#fetch-prompt").hidden = true; }
-
-// "What's new since your last visit" banner — new listings, price drops
-// (highlighting any on liked places), and newly-verified buildings.
-async function loadDigest() {
-  const d = await api.get("/api/digest");
-  const el = $("#whatsnew");
-  if (!d || !d.has_news) { el.hidden = true; return; }
-  const bits = [];
-  if (d.new_count) bits.push(`<b>${d.new_count}</b> new listing${d.new_count > 1 ? "s" : ""}`);
-  if (d.price_drops.length) bits.push(
-    `<b>${d.price_drops.length}</b> price drop${d.price_drops.length > 1 ? "s" : ""}` +
-    (d.liked_drops.length ? ` (<b>${d.liked_drops.length}</b> on liked ♥)` : ""));
-  if (d.newly_verified) bits.push(`<b>${d.newly_verified}</b> newly verified`);
-  el.innerHTML = `<span class="wn-title">Since your last visit:</span> ${bits.join(" · ")}` +
-    `<span class="spacer"></span><button id="wn-dismiss" class="ghost">dismiss</button>`;
-  el.hidden = false;
-  $("#wn-dismiss").onclick = async () => { el.hidden = true; await api.post("/api/digest/ack", {}); };
-}
-
-// First-run setup card. The app works immediately (free NYC Housing Connect,
-// no key), so this is purely an optional invitation to paste a RentCast key for
-// market-rate listings. It shows until a key is saved OR the user dismisses it,
-// and the choice sticks across launches (both flags live server-side).
-// Empty state. If the store is genuinely empty, prompt a fetch. If it has
-// listings but the hard filters ruled them ALL out, say which filter and how
-// many — a blank screen with a full store is just confusing.
-const RULE_LABELS = {
-  price_cap: "over your price cap", beds_floor: "fewer bedrooms than you want",
-  sqft_floor: "smaller than your minimum", location: "outside your neighborhoods",
-  borough: "outside your boroughs", amenities: "missing a must-have amenity",
-  not_excluded: "in a neighborhood you excluded",
-};
-function renderEmpty() {
-  const el = $("#empty");
-  if (state.results.length) { el.hidden = true; return; }
-  if (state.error) {
-    el.innerHTML = `<p>Something went wrong loading listings:</p>` +
-      `<p><code>${state.error}</code></p>` +
-      `<p>Check the terminal running the server for the full trace.</p>`;
-    el.hidden = false;
-    return;
-  }
-  const d = state.diagnostic;
-  if (d && d.store) {
-    const fails = Object.entries(d.fails || {})
-      .sort((a, b) => b[1] - a[1])
-      .map(([k, n]) => `<li><b>${n}</b> ${RULE_LABELS[k] || k}</li>`).join("");
-    const cap = d.prefs.max_price ? `$${d.prefs.max_price.toLocaleString()}` : "—";
-    el.innerHTML =
-      `<p>You have <b>${d.store}</b> saved listing${d.store > 1 ? "s" : ""}, ` +
-      `but your current filters rule them all out:</p>` +
-      `<ul class="empty-fails">${fails}</ul>` +
-      `<p>Loosen your filters (price cap ${cap}, ${d.prefs.beds}+ beds` +
-      `${d.prefs.neighborhoods?.length ? `, in ${d.prefs.neighborhoods.join(", ")}` : ""}` +
-      `${d.prefs.amenities?.length ? `, must-haves: ${d.prefs.amenities.join(", ")}` : ""}) ` +
-      `in <button type="button" id="empty-prefs" class="link">Preferences</button>, ` +
-      `or <button type="button" id="empty-fetch" class="link">fetch new listings</button>.</p>`;
-    const p = $("#empty-prefs"); if (p) p.onclick = () => $("#btn-prefs").click();
-    const f = $("#empty-fetch"); if (f) f.onclick = () => doFetch();
-  } else {
-    el.innerHTML = `No listings yet — open the <b>Update</b> menu (top right) and ` +
-      `choose <b>Fetch new listings</b> to pull some in.`;
-  }
-  el.hidden = false;
-}
-
-let _setupWired = false;
-function renderSetup() {
-  const m = state.meta, el = $("#setup-banner");
-  if (!el) return;
-  const show = m && !m.rentcast_key_set && !m.setup_dismissed;
-  if (!show) { el.hidden = true; return; }
-  if (!el.dataset.built) {
-    el.innerHTML =
-      `<h3>You're ready to search</h3>` +
-      `<p>The app already works — it's free via NYC Housing Connect, no key needed. ` +
-      `Want market-rate listings too? Paste a free ` +
-      `<a href="https://www.rentcast.io/api" target="_blank" rel="noopener">RentCast API key ↗</a>. ` +
-      `You only do this once — it's saved securely on your computer and remembered next time.</p>` +
-      `<div class="sb-row">` +
-        `<input id="setup-rc-key" type="password" placeholder="paste your RentCast key (optional)">` +
-        `<button type="button" id="setup-rc-save" class="primary">Save key</button>` +
-        `<button type="button" id="setup-skip" class="ghost">Not now</button>` +
-      `</div>` +
-      `<div class="sb-note">Stored only in <code>~/.neighbors</code> on this computer (owner-only, 0600), ` +
-      `never uploaded and never shown again. You can change it anytime in Preferences → Advanced.</div>`;
-    el.dataset.built = "1";
-  }
-  el.hidden = false;
-  if (!_setupWired) {
-    _setupWired = true;
-    $("#setup-rc-save").addEventListener("click", async () => {
-      const val = $("#setup-rc-key").value;
-      if (!val.trim()) return toast("Paste a key, or choose “Not now”");
-      const r = await api.post("/api/rentcast-key", { key: val });
-      if (r.error) return toast(r.error);
-      $("#setup-rc-key").value = "";
-      await loadState();
-      renderSetup();
-      toast("RentCast key saved — fetch to pull market-rate listings");
-    });
-    $("#setup-skip").addEventListener("click", async () => {
-      el.hidden = true;
-      await api.post("/api/setup/dismiss", {});
-      if (state.meta) state.meta.setup_dismissed = true;
-    });
-  }
-}
-
-let alpha = 0.6;  // the one blend parameter; presets and slider both set it
-
-async function loadResults() {
-  state.mode = "search"; state.seed = null; state.crumbs = [];
-  const data = await api.get(`/api/results?alpha=${alpha}${areaQuery()}`);
-  state.results = data.results || [];
-  state.stale = !!data.stale;
-  state.diagnostic = data.diagnostic || null;
-  state.error = data.error || null;   // surface backend failures, don't blank
-  await loadState();
-  render();
-}
-
-// "Balanced" and "Like my likes" blend results toward liked places; with zero
-// likes they're mathematically identical to "My criteria," so we disable them
-// (with a why) rather than let them look broken.
-function renderModes() {
-  const liked = state.meta?.feedback?.liked || 0;
-  const noLikes = liked === 0;
-  document.querySelectorAll("#modes button").forEach(b => {
-    const needsLikes = +b.dataset.alpha < 1;
-    b.disabled = needsLikes && noLikes;
-    b.title = b.disabled
-      ? "Like a few places first — then this blends results toward what you liked"
-      : "";
-  });
-  // the blend slider/advanced control only does something once there are likes
-  const slider = $("#alpha"), hint = $("#alpha-hint"), adv = $("#adv-toggle");
-  if (slider) {
-    slider.disabled = noLikes;
-    slider.title = noLikes ? "Like a place first — then blend toward your likes" : "";
-  }
-  if (hint) hint.hidden = !noLikes;
-  if (adv) adv.title = noLikes ? "Like a place first to fine-tune the blend" : "fine-tune the blend";
-}
-function setAlpha(value, fromSlider = false) {
-  alpha = +value;
-  $("#alpha").value = alpha;
-  $("#alpha-val").textContent = alpha.toFixed(2);
-  document.querySelectorAll("#modes button").forEach(b =>
-    b.classList.toggle("active", !fromSlider && +b.dataset.alpha === alpha));
-  loadResults();
-}
-
-async function loadSimilar(id, fromCrumb = false) {
-  const data = await api.get(`/api/similar?id=${encodeURIComponent(id)}`);
-  if (data.error) return toast(data.error);
-  state.mode = "similar"; state.seed = data.seed; state.results = data.results;
-  if (!fromCrumb) state.crumbs.push(data.seed);
-  render();
-}
 
 // ---------- compare / shortlist view ----------
 // The final-decision surface: liked apartments in columns, attributes in rows,
@@ -1450,6 +1552,7 @@ async function loadSimilar(id, fromCrumb = false) {
 
 async function loadLiked() {
   const data = await api.get("/api/liked");
+  if (data.error) toast(data.error);
   state.liked = data.results || [];
 }
 
@@ -1458,162 +1561,130 @@ function bestCells(vals, dir) {
   const nums = vals.filter(v => v !== null);
   if (nums.length < 2) return new Set();          // nothing to compare against
   const best = dir === "min" ? Math.min(...nums) : Math.max(...nums);
-  const s = new Set();
-  vals.forEach((v, i) => { if (v === best) s.add(i); });
-  return s;
+  return new Set(vals.flatMap((v, i) => v === best ? [i] : []));
 }
 
 function renderCompare() {
   const apts = state.liked;
-  $("#cmp-sub").textContent = apts.length ? `${apts.length} liked` : "";
+  $("#cmp-sub").textContent = !apts.length ? ""
+    : apts.length > 5 ? `${apts.length} liked · scroll to compare →` : `${apts.length} liked`;
   if (!apts.length) {
     $("#cmp-body").innerHTML =
       `<p class="cmp-empty">No liked apartments yet.<br>Tap the ♥ on any card to add it here.</p>`;
     return;
   }
-  $("#cmp-sub").textContent = apts.length > 5
-    ? `${apts.length} liked · scroll to compare →` : `${apts.length} liked`;
-  const multi = apts.length > 1;
-  const cell = (v, best, i) => `<td class="${best.has(i) ? "best" : ""}">${v}</td>`;
+  const row = (label, cells) => `<tr><th>${label}</th>${cells.join("")}</tr>`;
   const numRow = (label, vals, fmt, dir) => {
-    const best = multi ? bestCells(vals, dir) : new Set();
-    return `<tr><th>${label}</th>${
-      vals.map((v, i) => cell(v === null ? "—" : fmt(v), best, i)).join("")}</tr>`;
+    const best = bestCells(vals, dir);
+    return row(label, vals.map((v, i) =>
+      `<td class="${best.has(i) ? "best" : ""}">${v === null ? "—" : fmt(v)}</td>`));
   };
-  const plainRow = (label, htmls) =>
-    `<tr><th>${label}</th>${htmls.map(h => `<td>${h}</td>`).join("")}</tr>`;
+  const plainRow = (label, htmls) => row(label, htmls.map(h => `<td>${h}</td>`));
 
-  // column headers: neighborhood + address + unlike + open-in-maps
-  const head = `<tr><th></th>${apts.map(a => `
+  // column headers: neighborhood + address + unlike / details / similar
+  const head = row("", apts.map(a => `
     <th class="cmp-apt">
-      <div class="cmp-hood">${a.neighborhood || "?"}</div>
-      <div class="cmp-addr">${a.address.split(",")[0]}</div>
+      <div class="cmp-hood">${esc(a.neighborhood || "?")}</div>
+      <div class="cmp-addr">${esc((a.address || "").split(",")[0])}</div>
       ${a.active === false ? `<div class="cmp-gone">may be gone</div>` : ""}
       <div class="cmp-apt-actions">
-        <button class="cmp-unlike act" data-id="${a.id}" title="unlike / remove">${I.heart}</button>
-        <button class="cmp-details" data-id="${a.id}" title="full details">details</button>
-        <button class="cmp-similar" data-id="${a.id}" title="find similar apartments">${I.similar} similar</button>
+        <button class="cmp-unlike act" data-id="${esc(a.id)}" title="unlike / remove"
+                aria-label="unlike / remove">${I.heart}</button>
+        <button class="cmp-details" data-id="${esc(a.id)}" title="full details">details</button>
+        <button class="cmp-similar" data-id="${esc(a.id)}" title="find similar apartments">${I.similar} similar</button>
       </div>
-    </th>`).join("")}</tr>`;
+    </th>`));
 
   // union of commute destinations across the shortlist, one row each
-  const places = [];
-  apts.forEach(a => (a.commutes || []).forEach(c => {
-    if (!places.includes(c.name)) places.push(c.name); }));
+  const places = [...new Set(apts.flatMap(a => (a.commutes || []).map(c => c.name)))];
 
   const rows = [
     numRow("Price", apts.map(a => a.price),
            v => `<span class="cmp-price">${money(v)}</span>`, "min"),
     apts.some(a => a.match !== null)
       ? numRow("Match", apts.map(a => a.match), v => `${v}%`, "max") : "",
-    plainRow("Layout", apts.map(a => `${bedsTxt(a.beds)} · ${a.baths} ba`)),
-    numRow("Size", apts.map(a => a.sqft || null), v => `${v} ft²`, "max"),
-    ...places.map(name => numRow(name, apts.map(a => {
+    plainRow("Layout", apts.map(a => `${bedsTxt(a.beds)} · ${bathsTxt(a.baths)} ba`)),
+    numRow("Size", apts.map(a => a.sqft || null), v => `${esc(v)} ft²`, "max"),
+    ...places.map(name => numRow(esc(name), apts.map(a => {
       const c = (a.commutes || []).find(x => x.name === name);
       return c && c.minutes !== null ? c.minutes : null;
-    }), v => `~${v} min`, "min")),
-    verifyRow(apts),
-    plainRow("Transit", apts.map(a =>
-      (a.stations || []).length
-        ? `<div class="cmp-stations">${(a.stations || []).map(s =>
-            `<div>${lineBullets(s.lines)}<span class="cmp-stn">${s.name} · ${s.walk_min}m</span></div>`).join("")}</div>`
-        : "—")),
-    plainRow("Amenities", apts.map(a => a.amenities.length
+    }), v => `~${esc(v)} min`, "min")),
+    plainRow("Verified", apts.map(a => {
+      const v = trustDisplay(a.trust);
+      return `<span class="trust ${v.cls}">${v.icon} ${v.txt}</span>`;
+    })),
+    plainRow("Transit", apts.map(a => (a.stations || []).length
+      ? `<div class="cmp-stations">${a.stations.map(s =>
+          `<div>${lineBullets(s.lines)}<span class="cmp-stn">${esc(s.name)} · ${esc(s.walk_min)}m</span></div>`).join("")}</div>`
+      : "—")),
+    plainRow("Amenities", apts.map(a => (a.amenities || []).length
       ? `<div class="cmp-chips">${a.amenities
-          .map(x => `<span class="chip">${x.replaceAll("_", " ")}</span>`).join("")}</div>` : "—")),
+          .map(x => `<span class="chip">${pretty(x)}</span>`).join("")}</div>` : "—")),
   ].join("");
 
   $("#cmp-body").innerHTML = `<table class="cmp"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
 }
 
-async function openCompare() {
+$("#btn-compare").addEventListener("click", async () => {
   await loadLiked();
   renderCompare();
   $("#compare-dialog").showModal();
-}
-
-$("#btn-compare").addEventListener("click", openCompare);
+});
 $("#cmp-close").addEventListener("click", () => $("#compare-dialog").close());
 
 // per-apartment actions inside the Liked table: details, similar, unlike
-$("#cmp-body").addEventListener("click", async (e) => {
-  const det = e.target.closest(".cmp-details");
-  if (det) return openDetail(det.dataset.id);        // full details on top of the modal
-  const sim = e.target.closest(".cmp-similar");
-  if (sim) { $("#compare-dialog").close(); return loadSimilar(sim.dataset.id); }
-  const btn = e.target.closest(".cmp-unlike");
+$("#cmp-body").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-id]");
   if (!btn) return;
-  await api.post("/api/feedback", { id: btn.dataset.id, verdict: "clear" });
-  await loadLiked();
-  renderCompare();
-  state.mode === "similar" && state.seed ? loadSimilar(state.seed.id) : loadResults();
-});
-
-// event delegation: one listener handles every card action
-$("#grid").addEventListener("click", async (e) => {
-  const card = e.target.closest(".card");
-  if (!card) return;
-  const btn = e.target.closest("button.act");
-  // clicking anywhere on the card that isn't an action button opens details
-  if (!btn) return openDetail(card.dataset.id);
-  const id = card.dataset.id;
-  const act = btn.dataset.act;
-  if (act === "details") return openDetail(id);
-  if (act === "similar") return loadSimilar(id);
-  if (act === "verify-one") {
-    btn.textContent = "checking…";
-    await verifyOne(id);
-    return state.mode === "similar" && state.seed ? loadSimilar(state.seed.id) : loadResults();
+  const id = btn.dataset.id;
+  if (btn.classList.contains("cmp-details")) return openDetail(id);   // on top of this modal
+  if (btn.classList.contains("cmp-similar")) {
+    $("#compare-dialog").close();
+    return loadSimilar(id);
   }
-  await api.post("/api/feedback", { id, verdict: act });
-  toast(act === "hide" ? "hidden — won't show again" :
-        act === "like" ? "liked — pulls similar places up" : "cleared");
-  state.mode === "similar" ? loadSimilar(state.seed.id) : loadResults();
+  if (btn.classList.contains("cmp-unlike")) sendFeedback(id, "clear", false);
 });
-
-$("#modes").addEventListener("click", (e) => {
-  const btn = e.target.closest("button");
-  if (btn) setAlpha(btn.dataset.alpha);
-});
-$("#adv-toggle").addEventListener("click", () =>
-  $("#alpha-wrap").classList.toggle("open"));
-$("#alpha").addEventListener("change", (e) => setAlpha(e.target.value, true));
 
 // ---------- the "Update" split menu: Refresh / Verify all / Fetch ----------
 // One control folds the three data actions; progress shows on the Update
 // button so it stays visible after the menu closes.
-const UPDATE_LABEL = $("#btn-update").innerHTML;
-const setUpdateBusy = (text) => {
-  const b = $("#btn-update"); b.disabled = true; b.dataset.busy = "1"; b.textContent = text;
-};
-const clearUpdateBusy = () => {
-  const b = $("#btn-update"); b.disabled = false; delete b.dataset.busy;
-  b.innerHTML = UPDATE_LABEL;
-};
+const updateBtn = $("#btn-update"), updateMenu = $("#update-menu");
+const UPDATE_LABEL = updateBtn.innerHTML;
+function setUpdateBusy(text) {
+  updateBtn.disabled = true; updateBtn.dataset.busy = "1"; updateBtn.textContent = text;
+}
+function clearUpdateBusy() {
+  updateBtn.disabled = false; delete updateBtn.dataset.busy;
+  updateBtn.innerHTML = UPDATE_LABEL;
+}
+function setMenuOpen(open) {
+  updateMenu.hidden = !open;
+  updateBtn.setAttribute("aria-expanded", open);
+}
 
 // Refresh = re-rank what's on disk. No provider call, no quota.
 async function doRefresh() {
   setUpdateBusy("Re-ranking…");
-  await (state.mode === "similar" && state.seed ? loadSimilar(state.seed.id) : loadResults());
+  await reloadView();
   clearUpdateBusy();
   toast("re-ranked");
 }
 
 // Verify all: loop the batched endpoint until nothing needs checking. Free.
 async function doVerifyAll() {
-  let done = 0;
-  try {
-    setUpdateBusy("Verifying…");
-    while (true) {
-      const r = await api.post("/api/verify", { batch: 20 });
-      if (r.error) { toast("verify failed: " + r.error); break; }
-      done += r.checked;
-      setUpdateBusy(r.remaining > 0 ? `Verifying… ${r.remaining} left` : "Verifying…");
-      if (r.remaining === 0 || r.checked === 0) break;
-    }
-  } finally { clearUpdateBusy(); }
-  toast(done ? `verified ${done} — re-ranking` : "everything already verified");
-  loadResults();  // re-rank so newly-verified listings rise
+  let done = 0, error = null;
+  setUpdateBusy("Verifying…");
+  while (true) {
+    const r = await api.post("/api/verify", { batch: 20 });
+    if (r.error) { error = r.error; break; }
+    done += r.checked || 0;
+    setUpdateBusy(r.remaining > 0 ? `Verifying… ${r.remaining} left` : "Verifying…");
+    if (!r.remaining || !r.checked) break;
+  }
+  clearUpdateBusy();
+  toast(error ? `verify failed: ${error}`
+        : done ? `verified ${done} — re-ranking` : "everything already verified");
+  reloadView();   // re-rank so newly-verified listings rise
 }
 
 // Fetch: pull new listings (spends monthly quota) + verify the newest.
@@ -1621,58 +1692,49 @@ async function doFetch() {
   setUpdateBusy("Fetching…");
   const r = await api.post("/api/fetch", {});
   clearUpdateBusy();
-  toast(r.error ? `fetch failed: ${r.error}`
-                : `fetched ${r.fetched} · ${r.new} new · ${r.price_drops} drops · ${r.verified} verified`);
+  if (r.error) return toast(`fetch failed: ${r.error}`);
+  toast(`fetched ${r.fetched} · ${r.new} new · ${r.price_drops} drops · ${r.verified} verified`);
   clearPrefsDirty();   // fresh data now covers the current preferences
   loadResults();
 }
 
-const updateMenu = $("#update-menu");
-$("#btn-update").addEventListener("click", (e) => {
-  if ($("#btn-update").dataset.busy) return;
+updateBtn.addEventListener("click", (e) => {
+  if (updateBtn.dataset.busy) return;
   e.stopPropagation();
-  updateMenu.hidden = !updateMenu.hidden;
+  setMenuOpen(updateMenu.hidden);
 });
-document.addEventListener("click", () => { updateMenu.hidden = true; });
+document.addEventListener("click", () => setMenuOpen(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !updateMenu.hidden) { setMenuOpen(false); updateBtn.focus(); }
+});
 updateMenu.addEventListener("click", (e) => {
   const item = e.target.closest(".menu-item");
   if (!item) return;
-  updateMenu.hidden = true;
+  setMenuOpen(false);
   ({ refresh: doRefresh, verify: doVerifyAll, fetch: doFetch })[item.dataset.action]?.();
-});
-
-// Zero-thought freshness: silently re-rank when the tab regains focus.
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && state.mode === "search") loadResults();
 });
 
 // ---------- preferences dialog ----------
 
 // Multi-selects are checkbox grids built from the server's canonical option
 // lists — these values feed provider API calls, so free-text entry (and its
-// typos) is deliberately impossible.
-function renderChecks(containerId, options, selected) {
-  const sel = new Set(selected.map(s => s.toLowerCase()));
-  $(containerId).innerHTML = options.map(opt => `
-    <label><input type="checkbox" value="${opt}" ${sel.has(opt) ? "checked" : ""}>
-      ${opt.replaceAll("_", " ")}</label>`).join("");
+// typos) is deliberately impossible. `sourced` (amenities only) marks the
+// data-backed options with ✓ and sorts them first.
+function renderChecks(containerId, options, selected, sourced = null) {
+  const sel = new Set((selected || []).map(s => s.toLowerCase()));
+  const src = new Set((sourced || []).map(s => s.toLowerCase()));
+  const order = sourced
+    ? [...options].sort((a, b) => src.has(b.toLowerCase()) - src.has(a.toLowerCase()))
+    : options;
+  $(containerId).innerHTML = order.map(opt => `
+    <label><input type="checkbox" value="${esc(opt)}" ${sel.has(opt.toLowerCase()) ? "checked" : ""}>
+      ${pretty(opt)}${src.has(opt.toLowerCase())
+        ? ` <span class="src-badge" title="we can confirm or infer this from data">✓</span>` : ""}
+    </label>`).join("");
 }
 
 const checkedValues = (containerId) =>
   [...document.querySelectorAll(`${containerId} input:checked`)].map(el => el.value);
-
-// amenities picker: data-backed ones (✓) sorted first, best-effort after
-function renderAmenityChecks(containerId, options, selected, sourced) {
-  const sel = new Set(selected.map(s => s.toLowerCase()));
-  const src = new Set((sourced || []).map(s => s.toLowerCase()));
-  const order = [...options].sort((a, b) => (src.has(b) ? 1 : 0) - (src.has(a) ? 1 : 0));
-  $(containerId).innerHTML = order.map(opt => `
-    <label class="${src.has(opt) ? "sourced" : ""}">
-      <input type="checkbox" value="${opt}" ${sel.has(opt) ? "checked" : ""}>
-      ${opt.replaceAll("_", " ")}${src.has(opt)
-        ? ` <span class="src-badge" title="we can confirm or infer this from data">✓</span>` : ""}
-    </label>`).join("");
-}
 
 // Neighborhood tri-state (0 neutral · 1 want ✓ · 2 avoid ✕). Marks live in
 // `nbState` (in memory) so they survive re-renders when the borough filter
@@ -1686,8 +1748,8 @@ function renderNeighborhoods() {
   const visible = opts.neighborhoods.filter(n =>
     chosen.size === 0 || chosen.has((region[n] || "").toLowerCase()));
   $("#check-neighborhoods").innerHTML = visible.map(opt =>
-    `<span class="n" data-state="${nbState[opt] || 0}" data-name="${opt}"
-      title="click: want · click again: avoid · again: clear">${opt.replaceAll("_", " ")}</span>`).join("");
+    `<span class="n" role="button" tabindex="0" data-state="${nbState[opt] || 0}" data-name="${esc(opt)}"
+      title="click: want · click again: avoid · again: clear">${pretty(opt)}</span>`).join("");
   $("#nb-hint").hidden = chosen.size === 0;
 }
 // collect from the CURRENTLY VISIBLE chips (hidden = not in a chosen borough,
@@ -1696,23 +1758,30 @@ const triValues = (containerId, wantState) =>
   [...document.querySelectorAll(`${containerId} .n`)]
     .filter(n => +n.dataset.state === wantState).map(n => n.dataset.name);
 
-// single click cycles neutral→want→avoid; double-click jumps straight to avoid
+function setNeighborhood(n, s) { n.dataset.state = s; nbState[n.dataset.name] = s; }
+// click (or Enter/Space) cycles neutral→want→avoid; double-click jumps to avoid
 $("#check-neighborhoods").addEventListener("click", (e) => {
   const n = e.target.closest(".n");
-  if (n) { n.dataset.state = ((+n.dataset.state) + 1) % 3; nbState[n.dataset.name] = +n.dataset.state; }
+  if (n) setNeighborhood(n, (+n.dataset.state + 1) % 3);
+});
+$("#check-neighborhoods").addEventListener("keydown", (e) => {
+  const n = e.target.closest(".n");
+  if (n && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    setNeighborhood(n, (+n.dataset.state + 1) % 3);
+  }
 });
 $("#check-neighborhoods").addEventListener("dblclick", (e) => {
   const n = e.target.closest(".n");
-  if (n) { n.dataset.state = "2"; nbState[n.dataset.name] = 2; }
+  if (n) setNeighborhood(n, 2);
 });
 // re-filter the neighborhood list whenever the borough selection changes
 $("#check-boroughs").addEventListener("change", renderNeighborhoods);
 
-$("#btn-prefs").addEventListener("click", () => {
-  const p = state.meta.prefs;
-  const opts = state.meta.options;
-  const f = $("#prefs-form");
-  for (const el of f.elements) {
+function openPrefs() {
+  if (!state.meta) return;   // still loading
+  const p = state.meta.prefs, opts = state.meta.options;
+  for (const el of $("#prefs-form").elements) {
     if (!el.name || el.type === "checkbox") continue;
     el.value = p[el.name] ?? "";
   }
@@ -1722,88 +1791,15 @@ $("#btn-prefs").addEventListener("click", () => {
   $("#fetch-limit-val").textContent = p.fetch_limit ?? 1000;
   $("#rc-key").value = "";
   setRcKeyStatus(state.meta.rentcast_key_set);
-  renderChecks("#check-boroughs", opts.regions, p.boroughs || []);
+  renderChecks("#check-boroughs", opts.regions, p.boroughs);
   renderNeighborhoods();
-  renderAmenityChecks("#check-amenities", opts.amenities, p.amenities, opts.sourced_amenities);
+  renderChecks("#check-amenities", opts.amenities, p.amenities, opts.sourced_amenities);
   renderChecks("#check-sources", opts.sources, p.sources);
   renderPlaces(p.places || []);
   $("#prefs-dialog").showModal();
-});
-
-// ---------- important places editor ----------
-// Segmented street/city/zip inputs, verified against a real geocoder before
-// save — an invalid address can never be saved (see verifyPlace / btn-save).
-
-function setPlaceStatus(row, cls, msg) {
-  row.querySelector(".p-status").className = `p-status ${cls}`;
-  row.querySelector(".p-status").textContent = msg;
 }
-
-async function verifyPlace(row) {
-  const street = row.querySelector(".p-street").value.trim();
-  const city = row.querySelector(".p-city").value.trim();
-  const zip = row.querySelector(".p-zip").value.trim();
-  if (street.length < 5 || !city) {
-    setPlaceStatus(row, "err", "enter at least a street and a city");
-    return false;
-  }
-  setPlaceStatus(row, "", "looking up…");
-  const hit = await api.get(`/api/geocode?street=${encodeURIComponent(street)}` +
-                            `&city=${encodeURIComponent(city)}&zip=${encodeURIComponent(zip)}`);
-  if (!hit.found) {
-    row.dataset.lat = ""; row.dataset.lon = "";
-    setPlaceStatus(row, "err", `✕ ${hit.error || "not found"}`);
-    return false;
-  }
-  row.dataset.lat = hit.lat; row.dataset.lon = hit.lon;
-  setPlaceStatus(row, "ok", `✓ ${hit.address}`);
-  return true;
-}
-
-function placeRow(p = {}) {
-  const div = document.createElement("div");
-  div.className = "place-row";
-  const street = p.street || p.address || "";
-  div.innerHTML = `
-    <input placeholder="name (e.g. Work)" class="p-name" value="${p.name || ""}">
-    <button type="button" class="verify">verify</button>
-    <button type="button" class="rm">✕</button>
-    <input placeholder="street address (e.g. 30 Hudson St)" class="p-street" value="${street}">
-    <input placeholder="city (e.g. New York)" class="p-city" value="${p.city || ""}">
-    <input placeholder="zip (optional)" class="p-zip" value="${p.zip || ""}">
-    <span class="p-limit">commute limit:
-      <select class="p-mode">
-        <option value="off">no limit</option>
-        <option value="soft">prefer within</option>
-        <option value="hard">only within</option>
-      </select>
-      <input class="p-max" type="number" min="1" placeholder="min" value="${p.max_min ?? ""}"> min
-    </span>
-    <span class="p-status"></span>`;
-  div.querySelector(".p-mode").value =
-    ["soft", "hard"].includes(p.limit) ? p.limit : "off";
-  if (p.lat != null) {
-    div.dataset.lat = p.lat; div.dataset.lon = p.lon;
-    setPlaceStatus(div, "ok", "✓ verified");
-  }
-  div.querySelector(".rm").onclick = () => div.remove();
-  div.querySelector(".verify").onclick = () => verifyPlace(div);
-  for (const cls of [".p-street", ".p-city", ".p-zip"])
-    div.querySelector(cls).addEventListener("input", () => {
-      div.dataset.lat = ""; div.dataset.lon = "";
-      setPlaceStatus(div, "", "");
-    });
-  return div;
-}
-
-function renderPlaces(places) {
-  const list = $("#places-list");
-  list.innerHTML = "";
-  places.forEach(p => list.appendChild(placeRow(p)));
-}
-
-$("#add-place").addEventListener("click", () =>
-  $("#places-list").appendChild(placeRow()));
+$("#btn-prefs").addEventListener("click", openPrefs);
+$('#prefs-form button[value="cancel"]').addEventListener("click", () => $("#prefs-dialog").close());
 
 $("#pref-adv-toggle").addEventListener("click", () => {
   const adv = $("#pref-adv");
@@ -1828,6 +1824,83 @@ $("#rc-key-save").addEventListener("click", async () => {
   toast(r.set ? "RentCast key saved — fetch to pull market-rate listings" : "RentCast key removed");
 });
 
+// ---------- important places editor ----------
+// Segmented street/city/zip inputs, verified against a real geocoder before
+// save — an invalid address can never be saved (see verifyPlace / savePrefs).
+
+function setPlaceStatus(row, cls, msg) {
+  const el = row.querySelector(".p-status");
+  el.className = `p-status ${cls}`;
+  el.textContent = msg;
+}
+
+async function verifyPlace(row) {
+  const field = (cls) => row.querySelector(cls).value.trim();
+  const street = field(".p-street"), city = field(".p-city"), zip = field(".p-zip");
+  if (street.length < 5 || !city) {
+    setPlaceStatus(row, "err", "enter at least a street and a city");
+    return false;
+  }
+  setPlaceStatus(row, "", "looking up…");
+  const q = new URLSearchParams({ street, city, zip });
+  const hit = await api.get(`/api/geocode?${q}`);
+  if (!hit.found) {
+    row.dataset.lat = ""; row.dataset.lon = "";
+    setPlaceStatus(row, "err", `✕ ${hit.error || "not found"}`);
+    return false;
+  }
+  row.dataset.lat = hit.lat; row.dataset.lon = hit.lon;
+  setPlaceStatus(row, "ok", `✓ ${hit.address}`);
+  return true;
+}
+
+function placeRow(p = {}) {
+  const div = document.createElement("div");
+  div.className = "place-row";
+  div.innerHTML = `
+    <input placeholder="name (e.g. Work)" class="p-name" aria-label="place name">
+    <button type="button" class="verify">verify</button>
+    <button type="button" class="rm" aria-label="remove this place" title="remove">✕</button>
+    <input placeholder="street address (e.g. 30 Hudson St)" class="p-street" aria-label="street address">
+    <input placeholder="city (e.g. New York)" class="p-city" aria-label="city">
+    <input placeholder="zip (optional)" class="p-zip" aria-label="zip code">
+    <span class="p-limit">commute limit:
+      <select class="p-mode" aria-label="commute limit">
+        <option value="off">no limit</option>
+        <option value="soft">prefer within</option>
+        <option value="hard">only within</option>
+      </select>
+      <input class="p-max" type="number" min="1" placeholder="min" aria-label="minutes"> min
+    </span>
+    <span class="p-status"></span>`;
+  // values set as properties, never interpolated into markup
+  const set = (cls, v) => { div.querySelector(cls).value = v ?? ""; };
+  set(".p-name", p.name);
+  set(".p-street", p.street || p.address);
+  set(".p-city", p.city);
+  set(".p-zip", p.zip);
+  set(".p-max", p.max_min);
+  set(".p-mode", ["soft", "hard"].includes(p.limit) ? p.limit : "off");
+  if (p.lat != null) {
+    div.dataset.lat = p.lat; div.dataset.lon = p.lon;
+    setPlaceStatus(div, "ok", "✓ verified");
+  }
+  div.querySelector(".rm").addEventListener("click", () => div.remove());
+  div.querySelector(".verify").addEventListener("click", () => verifyPlace(div));
+  for (const cls of [".p-street", ".p-city", ".p-zip"])
+    div.querySelector(cls).addEventListener("input", () => {
+      div.dataset.lat = ""; div.dataset.lon = "";
+      setPlaceStatus(div, "", "");
+    });
+  return div;
+}
+
+function renderPlaces(places) {
+  $("#places-list").replaceChildren(...places.map(placeRow));
+}
+$("#add-place").addEventListener("click", () =>
+  $("#places-list").appendChild(placeRow()));
+
 const collectPlaces = () =>
   [...document.querySelectorAll("#places-list .place-row")]
     .map(row => ({ name: row.querySelector(".p-name").value.trim(),
@@ -1840,16 +1913,14 @@ const collectPlaces = () =>
                    lon: row.dataset.lon ? +row.dataset.lon : null }))
     .filter(p => p.name && p.street);
 
-// Save is a plain button (not a dialog submit) so a failed validation keeps
-// the dialog OPEN: every place must geocode to a real address before
-// preferences are saved.
-$("#btn-save").addEventListener("click", async () => {
+// Save (button or Enter in any field) never closes the dialog on its own, so a
+// failed validation keeps it OPEN: every place must geocode to a real address
+// before preferences are saved.
+async function savePrefs() {
   for (const row of document.querySelectorAll("#places-list .place-row")) {
-    if (row.querySelector(".p-name").value.trim() && !row.dataset.lat) {
-      if (await verifyPlace(row) === false) {
-        toast("fix the highlighted address, then save again");
-        return;
-      }
+    if (row.querySelector(".p-name").value.trim() && !row.dataset.lat
+        && !(await verifyPlace(row))) {
+      return toast("fix the highlighted address, then save again");
     }
   }
   const f = $("#prefs-form");
@@ -1872,6 +1943,29 @@ $("#btn-save").addEventListener("click", async () => {
   toast("preferences saved");
   markPrefsDirty();
   loadResults();
+}
+$("#prefs-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const save = $("#btn-save");
+  if (save.disabled) return;   // already saving
+  save.disabled = true;
+  try { await savePrefs(); } finally { save.disabled = false; }
+});
+
+// ---------- dialogs ----------
+// Every modal closes on a click on its backdrop. The dialog element itself is
+// the event target for both its padding and the backdrop, so check the click
+// is really outside its box — and that the press started there too, so a text
+// selection dragged out of an input doesn't discard the dialog.
+document.querySelectorAll("dialog").forEach(d => {
+  const outside = (e) => {
+    if (e.target !== d) return false;
+    const r = d.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
+  let pressedOutside = false;
+  d.addEventListener("mousedown", (e) => { pressedOutside = outside(e); });
+  d.addEventListener("click", (e) => { if (pressedOutside && outside(e)) d.close(); });
 });
 
 // boot: pick up a saved drawn area so it's active + outlined on first load

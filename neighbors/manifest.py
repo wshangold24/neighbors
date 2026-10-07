@@ -47,8 +47,8 @@ def covers(old: dict, new: dict) -> bool:
     `new` prefs would ask for? Expressed as a rule set — all must hold."""
     old_lo, old_hi = _price_range(old)
     new_lo, new_hi = _price_range(new)
-    old_hoods = {h.lower() for h in old["neighborhoods"]}
-    new_hoods = {h.lower() for h in new["neighborhoods"]}
+    old_hoods = {h.strip().lower() for h in old["neighborhoods"]}
+    new_hoods = {h.strip().lower() for h in new["neighborhoods"]}
     rules = (
         old_lo <= new_lo,                       # price window is a superset…
         old_hi >= new_hi,                       # …on both ends
@@ -86,9 +86,11 @@ class Manifest:
         out = []
         for line in self.path.read_text().splitlines():
             try:
-                out.append(json.loads(line))
+                entry = json.loads(line)
             except json.JSONDecodeError:
                 continue  # a torn write must not poison the whole manifest
+            if isinstance(entry, dict):
+                out.append(entry)
         return out
 
     def latest_covering(self, provider: str, prefs: Preferences,
@@ -97,11 +99,15 @@ class Manifest:
         the current preferences (so its listings are already in the store)."""
         now = time.time()
         new_snap = prefs_snapshot(prefs)
-        candidates = [
-            e for e in self.entries()
-            if e["provider"] == provider
-            and now - e["fetched_at"] <= max_age_s
-            and e["listings_found"] > 0
-            and covers(e["prefs_snapshot"], new_snap)
-        ]
+
+        def usable(e: dict) -> bool:
+            try:
+                return (e["provider"] == provider
+                        and now - e["fetched_at"] <= max_age_s
+                        and e["listings_found"] > 0
+                        and covers(e["prefs_snapshot"], new_snap))
+            except (KeyError, TypeError, AttributeError):
+                return False  # malformed / older-schema entry: never coverage
+
+        candidates = [e for e in self.entries() if usable(e)]
         return max(candidates, key=lambda e: e["fetched_at"], default=None)

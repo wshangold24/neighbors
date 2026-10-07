@@ -117,7 +117,10 @@ headless Chromium. Tests never touch the real network.
 ```
 neighbors/
   cli.py               terminal entry point (the only module that prompts/prints)
-  web.py, web.html     local web app: stdlib HTTP server + single-page UI
+  web.py               local web app: stdlib HTTP server, routing, validation
+  webapi.py            web app actions (results, feedback, prefs, fetch, verify)
+  views.py             pure listing → JSON view builders (trust, deltas, commutes)
+  web.html             the single-page UI
   models.py            Listing / Preferences, validation, neighborhood geometry
   knn.py               feature space, weighted distance, KNN, match %
   engine.py            hard gate, two-stage ranking, fetch planning

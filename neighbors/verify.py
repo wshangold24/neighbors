@@ -25,7 +25,7 @@ per fetch to respect rate limits.
 from __future__ import annotations
 
 import time
-from typing import Callable
+from typing import Callable, Optional
 
 from .knn import haversine_km
 
@@ -45,9 +45,11 @@ RESIDENTIAL_BLDG_CLASS = {"A", "B", "C", "D", "R", "S"}
 #   "bbl": str, "bin": str, "label": str,
 #   "lat": float, "lon": float,  # canonical coords (for the mismatch check)
 #   "units": int|None, "bldgclass": str, "landuse": str,   # PLUTO
+#   "numfloors": str|None, "yearbuilt": str|None,          # PLUTO
 #   "registered": bool|None,     # HPD
 # }
-BuildingLookup = Callable[[str, float | None, float | None], dict]
+# Optional, not `float | None`: an alias is evaluated at runtime (Python 3.9).
+BuildingLookup = Callable[[str, Optional[float], Optional[float]], dict]
 
 
 def _to_int(v) -> int:
@@ -85,16 +87,11 @@ def inferred_amenities(bldgclass: str, numfloors, yearbuilt, unitsres) -> list[s
         out.append("laundry_in_unit")
     if yb >= 2010 and ur >= 50:
         out += ["gym", "roof_deck"]          # large new developments
-    seen, uniq = set(), []
-    for a in out:
-        if a not in seen:
-            seen.add(a)
-            uniq.append(a)
-    return uniq
+    return list(dict.fromkeys(out))
 
 
 def is_residential(units, bldgclass: str, landuse: str) -> bool:
-    if units and units >= 1:
+    if _to_int(units) >= 1:
         return True
     if (landuse or "").zfill(2) in RESIDENTIAL_LANDUSE:
         return True
@@ -102,8 +99,10 @@ def is_residential(units, bldgclass: str, landuse: str) -> bool:
 
 
 def verify_one(rec: dict, lookup: BuildingLookup, now: float) -> dict:
-    """Verify one store record against the building registries. Never raises —
-    a failed lookup is a 'not_found' result, not an error."""
+    """Verify one store record against the building registries. An address
+    the lookup can't resolve is a 'not_found' result, not an error; exceptions
+    raised by `lookup` itself (e.g. BudgetExceeded) propagate, so the record
+    stays unverified instead of being stamped suspect for VERIFY_TTL_S."""
     listing = rec.get("listing", {})
     address = (listing.get("address") or "").strip()
     result: dict = {"at": now, "checked": address}
@@ -123,7 +122,7 @@ def verify_one(rec: dict, lookup: BuildingLookup, now: float) -> dict:
                                   f.get("yearbuilt"), f.get("units"))
                if residential else [])
     # existing derived facts (e.g. a prior RentCast enrichment) are preserved
-    prior = [a for a in listing.get("derived_amenities", []) if a not in facts]
+    prior = [a for a in listing.get("derived_amenities") or [] if a not in facts]
     listing["derived_amenities"] = facts + prior
     listing["inferred_amenities"] = [a for a in guesses
                                      if a not in listing["derived_amenities"]]
@@ -154,7 +153,7 @@ def needs_verify(rec: dict, now: float) -> bool:
 
 def verify_store(store, lookup: BuildingLookup, limit: int = 8,
                  now: float | None = None,
-                 only_ids: set | None = None) -> int:
+                 only_ids: set[str] | None = None) -> int:
     """Verify up to `limit` unverified (or stale) records in place. Returns how
     many were checked. Newest-seen first, so freshly-fetched listings get
     verified before old ones re-checked. Caller is responsible for store.save().
@@ -163,7 +162,7 @@ def verify_store(store, lookup: BuildingLookup, limit: int = 8,
     the listings that can actually be shown (in-area, active), instead of every
     address in the store. A citywide fetch stores hundreds the user will never
     see; verifying all of them is what made 'verify all' crawl."""
-    now = now or time.time()
+    now = time.time() if now is None else now
     checked = 0
     for rec in sorted(store.records().values(),
                       key=lambda r: r.get("last_seen", 0), reverse=True):

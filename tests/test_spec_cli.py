@@ -113,3 +113,30 @@ class TestCliSpec:
             r = run_cli([flag], tmp_path)
             assert r.returncode == 2, flag
             assert "unrecognized arguments" in r.stderr
+
+
+class TestCliRegressions:
+    def test_web_port_in_use_explains_instead_of_traceback(self, tmp_path):
+        with socket.socket() as busy:
+            busy.bind(("127.0.0.1", 0))
+            busy.listen()
+            port = busy.getsockname()[1]
+            r = run_cli(["web", "--port", str(port), "--no-browser"], tmp_path)
+        assert r.returncode == 1
+        assert "--port" in r.stdout and "Traceback" not in r.stderr
+
+    def test_out_of_range_values_are_usage_errors(self, tmp_path):
+        for args in (["--alpha", "3"], ["--alpha", "x"], ["web", "--port", "70000"]):
+            r = run_cli(args, tmp_path)
+            assert r.returncode == 2, args
+            assert "expected a value from" in r.stderr
+
+    def test_quota_set_used_rejects_unknown_provider(self, tmp_path):
+        r = run_cli(["quota", "--set-used", "=4"], tmp_path)
+        assert r.returncode == 1 and "usage: quota" in r.stdout
+
+    def test_engine_hide_confirms_in_plain_english(self, tmp_path):
+        seed_home(tmp_path)
+        r = run_cli(["engine", "--cached"], tmp_path, stdin="hide 1\nq\n")
+        assert r.returncode == 0, r.stderr
+        assert "  hidden: " in r.stdout and "hided" not in r.stdout

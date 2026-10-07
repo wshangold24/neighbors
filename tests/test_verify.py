@@ -123,3 +123,30 @@ class TestVerifyStore:
         r["verify"] = {"at": 100.0, "status": "ok"}
         assert needs_verify(r, now=110.0) is False
         assert verify_store(FakeStore({"k": r}), lookup_building(), now=110.0) == 0
+
+
+class TestVerifyEdgeCases:
+    def test_string_unit_counts_are_handled(self):
+        # Socrata returns numbers as strings; comparing "12" >= 1 would raise
+        assert is_residential("12", "O4", "05") is True
+        assert is_residential("0", "O4", "05") is False
+
+    def test_lookup_errors_propagate_and_leave_record_unverified(self):
+        import pytest
+
+        class OutOfBudget(Exception):
+            pass
+
+        def look(*_):
+            raise OutOfBudget
+
+        r = rec()
+        with pytest.raises(OutOfBudget):
+            verify_store(FakeStore({"k": r}), look, now=5.0)
+        assert "verify" not in r, "must not be stamped not_found for 30 days"
+
+    def test_null_derived_amenities_tolerated(self):
+        r = rec()
+        r["listing"]["derived_amenities"] = None
+        assert verify_one(r, lookup_building(bldgclass="D5"), now=5.0)["status"] == "ok"
+        assert r["listing"]["derived_amenities"] == ["elevator"]

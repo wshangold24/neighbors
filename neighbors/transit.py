@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .knn import haversine_km
+from .models import haversine_km
 
 WALK_KMH = 4.8            # brisk city walking
 SUBWAY_KMH = 28.0         # effective speed incl. stops
@@ -194,34 +194,36 @@ class CommuteEstimate:
     kind: str          # "subway" | "walk" | "no_subway"
 
 
+def _stations_by_distance(lat: float, lon: float) -> list[Station]:
+    """Every station, with its walk distance from the point, nearest first."""
+    return sorted((Station(name, set(lines.split("/")), slat, slon,
+                           haversine_km(lat, lon, slat, slon))
+                   for name, lines, slat, slon in STATIONS),
+                  key=lambda s: s.walk_km)
+
+
 def stations_within(lat: float, lon: float, max_walk_min: int = 10,
                     limit: int = 3) -> list[Station]:
     """Stations reachable within `max_walk_min` on foot, nearest first —
     the "what trains does this apartment actually have?" answer."""
     max_km = max_walk_min / 60 * WALK_KMH
-    found = []
-    for name, lines, slat, slon in STATIONS:
-        km = haversine_km(lat, lon, slat, slon)
-        if km <= max_km:
-            found.append(Station(name, set(lines.split("/")), slat, slon, km))
-    return sorted(found, key=lambda s: s.walk_km)[:limit]
+    return [s for s in _stations_by_distance(lat, lon) if s.walk_km <= max_km][:limit]
 
 
 def nearest_station(lat: float, lon: float) -> Station | None:
     """Closest station within a walkable radius, or None."""
-    best, best_km = None, MAX_STATION_WALK_KM
-    for name, lines, slat, slon in STATIONS:
-        km = haversine_km(lat, lon, slat, slon)
-        if km < best_km:
-            best, best_km = (name, lines, slat, slon), km
-    if best is None:
-        return None
-    name, lines, slat, slon = best
-    return Station(name, set(lines.split("/")), slat, slon, best_km)
+    nearest = _stations_by_distance(lat, lon)[0]
+    return nearest if nearest.walk_km < MAX_STATION_WALK_KM else None
 
 
 def _ride_min(km: float) -> int:
     return max(2, round(km / SUBWAY_KMH * 60))
+
+
+def _walk(km: float) -> CommuteEstimate:
+    m = max(1, round(km / WALK_KMH * 60))
+    label = f"walk ({km:.1f} km)"
+    return CommuteEstimate(m, [Step("walk", m, label)], label, "walk")
 
 
 def estimate_commute(from_lat: float, from_lon: float,
@@ -229,11 +231,12 @@ def estimate_commute(from_lat: float, from_lon: float,
     """Door-to-door public-transit estimate with an ordered step list."""
     direct_km = haversine_km(from_lat, from_lon, to_lat, to_lon)
     if direct_km <= WALK_ONLY_KM:
-        m = max(1, round(direct_km / WALK_KMH * 60))
-        return CommuteEstimate(m, [Step("walk", m, f"walk ({direct_km:.1f} km)")],
-                               f"walk ({direct_km:.1f} km)", "walk")
+        return _walk(direct_km)
 
     a, b = nearest_station(from_lat, from_lon), nearest_station(to_lat, to_lon)
+    if a is not None and b is not None and a.name == b.name:
+        # both ends share a nearest station: there is no train ride to take
+        return _walk(direct_km)
     if a is None or b is None:
         # crude surface-transit fallback so far-flung places still compare
         m = round(direct_km / 18.0 * 60 + 15)

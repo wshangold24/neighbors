@@ -38,6 +38,8 @@ verification are stubbed, and the browser tests block every non-local request.
 | WEB-05 | Loading and using the page produces no JavaScript errors. | `tests/e2e/test_web_ui.py` (every test) |
 | WEB-06 | In list view, the page makes no requests to hosts other than the local server. | `tests/e2e/test_web_ui.py` |
 | WEB-07 | At phone width (375px) the page has no horizontal scroll. | `tests/e2e/test_web_ui.py` |
+| WEB-08 | Text from listing sources and user-entered place names is rendered as text, never as HTML, and outbound links are http(s) only. | `tests/e2e/test_web_ui.py` |
+| WEB-09 | A failed or non-JSON request is reported in a toast instead of breaking the page. | `tests/e2e/test_web_ui.py` |
 
 ### Feedback
 
@@ -57,7 +59,10 @@ verification are stubbed, and the browser tests block every non-local request.
 | WEB-22 | "similar" on a card switches to a similar-listings view with a breadcrumb trail (`search ▸ <apartment>`). The seed apartment is not among its own results. | `tests/e2e/test_web_ui.py` |
 | WEB-23 | Chaining "similar" extends the breadcrumb trail. Clicking `search` returns to normal results. | `tests/e2e/test_web_ui.py` |
 | WEB-24 | "details" (or clicking a card body) opens a details dialog titled with that apartment's address. "Close" dismisses it. | `tests/e2e/test_web_ui.py` |
-| WEB-25 | The List / Map toggle switches between the card grid and the map container. | `tests/e2e/test_web_ui.py` |
+| WEB-25 | The List / Map toggle switches between the card grid and the map container. Map price pins stay legible, including affordable listings. | `tests/e2e/test_web_ui.py` |
+| WEB-26 | When requests overlap, only the newest one's response is shown. A slow earlier response never replaces a newer view. | `tests/e2e/test_web_ui.py` |
+| WEB-27 | Liking or hiding inside the similar view keeps you in that view, without adding a duplicate breadcrumb. | `tests/e2e/test_web_ui.py` |
+| WEB-28 | For RentCast listings, the details dialog offers "Look up amenities" (one quota-checked API call). | `tests/e2e/test_web_ui.py` |
 
 ### Preferences
 
@@ -66,12 +71,15 @@ verification are stubbed, and the browser tests block every non-local request.
 | WEB-30 | "Preferences" opens a dialog pre-filled with the saved preferences. | `tests/e2e/test_web_ui.py` |
 | WEB-31 | Saving changed preferences persists them (visible after reload and to the CLI), confirms with a toast, and offers to fetch listings for the new criteria. | `tests/e2e/test_web_ui.py` |
 | WEB-32 | Cancel discards edits. | `tests/e2e/test_web_ui.py` |
+| WEB-33 | Saved boroughs show as checked, so re-saving never silently drops them. | `tests/e2e/test_web_ui.py` |
+| WEB-34 | Pressing Enter in a preferences field saves the dialog. | `tests/e2e/test_web_ui.py` |
+| WEB-35 | Dialogs close on a backdrop click or Close, but not on clicks inside the dialog. | `tests/e2e/test_web_ui.py` |
 
 ### Updating data
 
 | ID | Requirement | Test |
 |---|---|---|
-| WEB-40 | The "Update" button opens a menu with Refresh, Verify all, and Fetch new listings. Clicking elsewhere closes it. | `tests/e2e/test_web_ui.py` |
+| WEB-40 | The "Update" button opens a menu with Refresh, Verify all, and Fetch new listings. Clicking elsewhere or pressing Escape closes it. | `tests/e2e/test_web_ui.py` |
 | WEB-41 | "Fetch new listings" pulls from the sources, merges new listings into the store, reports `fetched · new · drops · verified` in a toast, and shows the new listings. | `tests/e2e/test_web_ui.py` |
 | WEB-42 | With an empty store, the page shows an empty state pointing to "Fetch new listings" instead of a blank grid. | `tests/e2e/test_web_ui.py` |
 | WEB-43 | If the store has listings but the current filters rule them all out, the empty state says which filters excluded them and links to Preferences. | `tests/e2e/test_web_ui.py` |

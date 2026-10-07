@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional
 
 
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Local copy so models has no dependency on knn (which imports models)."""
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in km."""
     r = 6371.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
@@ -92,7 +93,7 @@ def _compute_radii() -> dict[str, float]:
     radii: dict[str, float] = {}
     items = list(NEIGHBORHOOD_COORDS.items())
     for name, (la, lo) in items:
-        nearest = min((_haversine_km(la, lo, ola, olo)
+        nearest = min((haversine_km(la, lo, ola, olo)
                        for other, (ola, olo) in items if other != name), default=3.0)
         radii[name] = max(0.7, min(2.5, nearest * 0.5))
     return radii
@@ -153,7 +154,7 @@ def _dist_to_ring_km(lat: float, lon: float, ring: list) -> float:
     return best
 
 
-def area_edge_km(lat: float, lon: float, neighborhoods) -> Optional[float]:
+def area_edge_km(lat: float, lon: float, neighborhoods: list[str]) -> Optional[float]:
     """Distance (km) from a point to the nearest wanted neighborhood's EDGE —
     0.0 when the point is INSIDE one of them. This is what "how far from your
     area" should mean: a listing in the neighborhood is at distance 0, not
@@ -161,7 +162,7 @@ def area_edge_km(lat: float, lon: float, neighborhoods) -> Optional[float]:
 
     Uses the precise NTA polygon when available (inside → 0, else distance to the
     boundary); otherwise the disk approximation. None if no known neighborhood."""
-    best = None
+    best: Optional[float] = None
     for n in neighborhoods:
         key = n.strip().lower()
         poly = NEIGHBORHOOD_POLYGONS.get(key)
@@ -169,7 +170,7 @@ def area_edge_km(lat: float, lon: float, neighborhoods) -> Optional[float]:
             edge = 0.0 if _point_in_ring(lat, lon, poly) else _dist_to_ring_km(lat, lon, poly)
         elif key in NEIGHBORHOOD_COORDS:
             cla, clo = NEIGHBORHOOD_COORDS[key]
-            edge = max(0.0, _haversine_km(cla, clo, lat, lon) - NEIGHBORHOOD_RADIUS.get(key, 1.2))
+            edge = max(0.0, haversine_km(cla, clo, lat, lon) - NEIGHBORHOOD_RADIUS.get(key, 1.2))
         else:
             continue
         best = edge if best is None else min(best, edge)
@@ -231,15 +232,20 @@ def region_of(lat: float, lon: float, max_deg: float = 0.30) -> str:
     return best
 
 
+def _display_name(name: str) -> str:
+    """'hell's kitchen' -> "Hell's Kitchen" (str.title() would give "Hell'S")."""
+    return re.sub(r"(^|[\s-])([a-z])", lambda m: m.group(1) + m.group(2).upper(), name)
+
+
 def nearest_neighborhood(lat: float, lon: float, max_deg: float = 0.02) -> str:
     """Reverse-map coordinates to the closest known neighborhood centroid
-    (≈2 km cutoff). Returns '' if nothing is close enough."""
+    (≈2 km cutoff), as a display name. Returns '' if nothing is close enough."""
     best, best_d = "", max_deg ** 2
     for name, (nlat, nlon) in NEIGHBORHOOD_COORDS.items():
         d = (nlat - lat) ** 2 + (nlon - lon) ** 2
         if d < best_d:
-            best, best_d = name.title(), d
-    return best
+            best, best_d = name, d
+    return _display_name(best)
 
 
 AMENITIES = [
@@ -292,12 +298,9 @@ class Listing:
         # Heal list fields that were persisted as null (older records, or a
         # merge that fell back to a missing key) — a None here is not iterable
         # and would crash display/scoring. Unknown amenities = empty list.
-        if self.amenities is None:
-            self.amenities = []
-        if self.derived_amenities is None:
-            self.derived_amenities = []
-        if self.inferred_amenities is None:
-            self.inferred_amenities = []
+        for name in ("amenities", "derived_amenities", "inferred_amenities"):
+            if getattr(self, name) is None:
+                setattr(self, name, [])
         # Fill coordinates from neighborhood centroid only when BOTH are
         # missing — never overwrite a provided coordinate.
         if self.lat is None and self.lon is None and self.neighborhood:
@@ -310,12 +313,14 @@ class Listing:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Listing":
-        known = {f for f in cls.__dataclass_fields__}
+        known = cls.__dataclass_fields__
         return cls(**{k: v for k, v in d.items() if k in known})
 
     def validate(self) -> bool:
         """Sanity checks — reject garbage rows from scrapers."""
         if not self.id or not self.address:
+            return False
+        if any(v is None for v in (self.price, self.beds, self.baths)):
             return False
         if not (500 <= self.price <= 60_000):
             return False
@@ -379,16 +384,13 @@ class Preferences:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Preferences":
-        known = {f for f in cls.__dataclass_fields__}
+        known = cls.__dataclass_fields__
         return cls(**{k: v for k, v in d.items() if k in known})
 
     def target_coords(self) -> Optional[tuple[float, float]]:
         """Centroid of chosen neighborhoods."""
-        pts = [
-            NEIGHBORHOOD_COORDS[n.strip().lower()]
-            for n in self.neighborhoods
-            if n.strip().lower() in NEIGHBORHOOD_COORDS
-        ]
+        keys = (n.strip().lower() for n in self.neighborhoods)
+        pts = [NEIGHBORHOOD_COORDS[k] for k in keys if k in NEIGHBORHOOD_COORDS]
         if not pts:
             return None
         return (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))

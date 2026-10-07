@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import pytest
 
 from neighbors import cli, web
+from neighbors.providers import rentcast, socrata
 from neighbors.providers.demo import DemoProvider
 
 from ..conftest import seed_home
@@ -46,6 +47,10 @@ def _start(tmp_path, monkeypatch, with_listings: bool) -> tuple[LiveApp, object]
     monkeypatch.setenv("HOME", str(tmp_path))
     for var in ("RENTCAST_API_KEY", "NYC_APP_TOKEN"):
         monkeypatch.delenv(var, raising=False)
+    # secret-file paths are resolved from the REAL home at import time; point
+    # them into the sandbox so a developer's saved keys are never read or used
+    monkeypatch.setattr(rentcast, "KEY_FILE", tmp_path / ".neighbors" / "rentcast_key")
+    monkeypatch.setattr(socrata, "TOKEN_FILE", tmp_path / ".neighbors" / "nyc_app_token")
     seed_home(tmp_path, with_listings=with_listings)
     app_dir = tmp_path / ".neighbors"
     server = web.make_server(app_dir, port=0)

@@ -16,12 +16,12 @@ from dataclasses import dataclass
 from typing import Callable
 
 from .feedback import Feedback
-from .knn import DEFAULT_WEIGHTS, Query, distance, haversine_km
+from .knn import Query, distance
 from .manifest import Manifest
 from .models import (NEIGHBORHOOD_COORDS, REGION_POINTS, Listing, Preferences,
-                     region_of)
-from .transit import estimate_commute
+                     haversine_km, region_of)
 from .quota import QuotaLedger
+from .transit import estimate_commute
 
 # How far a listing may be from the neighborhood centroid and still count
 # as "in the area" for the hard gate. Generous on purpose: the gate decides
@@ -118,7 +118,7 @@ def acceptable_rules(prefs: Preferences) -> list[tuple[str, Callable[[Listing], 
         rules.append(("borough", in_region))
     if prefs.min_price:
         floor = prefs.min_price * 0.85  # small slack below the floor
-        rules.append(("price_floor", lambda l: l.price >= floor))
+        rules.append(("price_floor", lambda l: l.price is None or l.price >= floor))
     if prefs.min_sqft:
         # unknown sqft is NOT a violation — scrapers often omit it
         rules.append(("sqft_floor",
@@ -129,7 +129,7 @@ def acceptable_rules(prefs: Preferences) -> list[tuple[str, Callable[[Listing], 
         # "in the area" = within the radius of ANY wanted neighborhood, not the
         # centroid of all of them (else two spread-out picks exclude both)
         rules.append(("location",
-                      lambda l: l.lat is None or
+                      lambda l: l.lat is None or l.lon is None or
                       any(haversine_km(la, lo, l.lat, l.lon) <= GATE_RADIUS_KM
                           for la, lo in hood_coords)))
     if wanted_amenities:
@@ -176,13 +176,13 @@ class Ranked:
     of the blended score came from preferences vs liked seeds."""
     listing: Listing
     score: float
-    parts: dict            # per-feature distance vs preferences
-    d_pref: float          # distance to the preference query
-    d_seed: float | None   # min distance to liked seeds (None if no likes)
+    parts: dict[str, float]  # per-feature distance vs preferences
+    d_pref: float            # distance to the preference query
+    d_seed: float | None     # min distance to liked seeds (None if no likes)
 
 
 def rank(prefs: Preferences, listings: list[Listing], feedback: Feedback,
-         alpha: float = DEFAULT_ALPHA, weights: dict | None = None,
+         alpha: float = DEFAULT_ALPHA, weights: dict[str, float] | None = None,
          k: int | None = None, priority: dict[str, float] | None = None) -> list[Ranked]:
     """Two-stage ranking: hard gate, then blended KNN score.
 
@@ -197,7 +197,6 @@ def rank(prefs: Preferences, listings: list[Listing], feedback: Feedback,
     This is how verification priority nudges verified listings up without
     distorting how well a listing actually matches your preferences.
     """
-    weights = weights or DEFAULT_WEIGHTS
     k = k or prefs.k
     pri = priority or {}
     known = set(feedback.liked) | set(feedback.hidden)

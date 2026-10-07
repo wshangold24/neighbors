@@ -17,8 +17,10 @@ The schema is lightly denormalized — one row per apartment, with the queryable
 fields (id, price, beds, coords, last_seen) as columns and the full record kept
 as a JSON `data` column. This mirrors the old JSON-file shape, so the rest of
 the app is unchanged (it still goes through this class), and it ports cleanly to
-Postgres later (the JSON column becomes JSONB). A legacy `store.json` from an
-earlier version is migrated automatically on first open.
+Postgres later (the JSON column becomes JSONB).
+
+The same database file also holds the feedback and quota tables (see
+feedback.py, quota.py); `open_db` is the one place connections are made.
 """
 
 from __future__ import annotations
@@ -27,8 +29,10 @@ import json
 import re
 import sqlite3
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterator
 
 from .models import Listing
 
@@ -38,6 +42,22 @@ from .models import Listing
 # as reference (price history, "what does $X buy in this area").
 ACTIVE_WINDOW_DAYS = 7
 DAY_S = 24 * 3600
+
+
+@contextmanager
+def open_db(path: Path, schema: str) -> Iterator[sqlite3.Connection]:
+    """Open the shared SQLite database, ensure `schema` exists, and yield the
+    connection. Commits on success, rolls back on error, and always closes
+    (sqlite3's own context manager commits but never closes)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, timeout=5.0)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")   # tolerate concurrent readers
+        conn.executescript(schema)
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def identity(l: Listing) -> str:
@@ -98,89 +118,59 @@ class Store:
        "price_history": [[epoch, price], ...],
        "sources": {"rentcast": url, "housingconnect": url}}
 
-    Records are loaded into memory on open and written back on save() — the same
-    programming model the JSON version used, so callers that read records(),
-    mutate them, and call save() keep working unchanged.
+    Records are loaded into memory on open and written back on save(). Callers
+    may mutate the dicts returned by records() directly; save() writes only the
+    records whose content changed since they were loaded or last saved, so two
+    processes sharing the database (CLI and web UI) don't overwrite each other's
+    untouched records with stale copies.
     """
 
     def __init__(self, path: Path):
         self.path = Path(path)
-        self._records: dict[str, dict] = self._load()
-        # store.db is shared with the feedback/quota tables, so "does the file
-        # exist" isn't a reliable "already migrated" signal — check the table.
-        if not self._records and self._migrate_legacy_json():
-            self._records = self._load()
+        self._records: dict[str, dict] = {}
+        self._saved: dict[str, str] = {}    # key -> JSON as last read/written
+        self._load()
 
-    def _connect(self) -> sqlite3.Connection:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.path, timeout=5.0)
-        conn.execute("PRAGMA journal_mode=WAL")   # tolerate concurrent readers
-        conn.executescript(_SCHEMA)
-        return conn
-
-    def _migrate_legacy_json(self) -> bool:
-        """One-time import of an older store.json sitting next to the DB.
-        Returns True if anything was imported."""
-        legacy = self.path.parent / "store.json"
-        if legacy == self.path or not legacy.exists():
-            return False
-        try:
-            records = json.loads(legacy.read_text())
-        except (json.JSONDecodeError, OSError):
-            return False
-        if not (isinstance(records, dict) and records):
-            return False
-        conn = self._connect()
-        try:
-            self._write(conn, records)
-            conn.commit()
-        finally:
-            conn.close()
-        return True
-
-    def _load(self) -> dict[str, dict]:
-        conn = self._connect()
-        try:
+    def _load(self) -> None:
+        with open_db(self.path, _SCHEMA) as conn:
             rows = conn.execute("SELECT key, data FROM listings").fetchall()
-        finally:
-            conn.close()
-        out = {}
         for key, data in rows:
             try:
-                out[key] = _heal(json.loads(data))
+                self._records[key] = _heal(json.loads(data))
             except (json.JSONDecodeError, TypeError):
                 continue
-        return out
+            self._saved[key] = data
 
     @staticmethod
-    def _row(key: str, rec: dict) -> tuple:
+    def _row(key: str, rec: dict, data: str) -> tuple:
         l = rec.get("listing", {})
         return (key, l.get("id"), l.get("price"), l.get("beds"), l.get("baths"),
                 l.get("lat"), l.get("lon"), l.get("neighborhood"), l.get("source"),
-                rec.get("first_seen"), rec.get("last_seen"), json.dumps(rec))
-
-    def _write(self, conn: sqlite3.Connection, records: dict[str, dict]) -> None:
-        conn.executemany(
-            "INSERT OR REPLACE INTO listings "
-            "(key,id,price,beds,baths,lat,lon,neighborhood,source,first_seen,last_seen,data) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            [self._row(k, r) for k, r in records.items()])
+                rec.get("first_seen"), rec.get("last_seen"), data)
 
     def save(self) -> None:
-        # upsert-by-key in one transaction (the store only ever adds/updates,
-        # never deletes, so we don't need to prune rows)
-        conn = self._connect()
-        try:
-            self._write(conn, self._records)
-            conn.commit()
-        finally:
-            conn.close()
+        """Upsert every changed record in one transaction. The store only ever
+        adds/updates, never deletes, so no rows need pruning."""
+        changed = {}
+        for key, rec in self._records.items():
+            data = json.dumps(rec)
+            if self._saved.get(key) != data:
+                changed[key] = data
+        if not changed:
+            return
+        with open_db(self.path, _SCHEMA) as conn:
+            conn.executemany(
+                "INSERT OR REPLACE INTO listings "
+                "(key,id,price,beds,baths,lat,lon,neighborhood,source,first_seen,last_seen,data) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                [self._row(k, self._records[k], d) for k, d in changed.items()])
+        self._saved.update(changed)
 
     # ---------- merging ----------
 
     def upsert(self, listings: list[Listing], now: float | None = None) -> UpsertStats:
         """Merge a fetch into the store. Never deletes; only adds/refreshes."""
-        now = now or time.time()
+        now = time.time() if now is None else now
         stats = UpsertStats()
         for l in listings:
             key = identity(l)
@@ -231,7 +221,7 @@ class Store:
     def active(self, now: float | None = None,
                window_days: int = ACTIVE_WINDOW_DAYS) -> list[Listing]:
         """Listings seen recently enough to plausibly still be on the market."""
-        now = now or time.time()
+        now = time.time() if now is None else now
         cutoff = now - window_days * DAY_S
         return [Listing.from_dict(r["listing"])
                 for r in self._records.values()
@@ -239,7 +229,7 @@ class Store:
 
     def annotations(self, now: float | None = None) -> dict[str, str]:
         """Display flags keyed by listing id: NEW, price drops, staleness."""
-        now = now or time.time()
+        now = time.time() if now is None else now
         out = {}
         for r in self._records.values():
             lid = r["listing"]["id"]

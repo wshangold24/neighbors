@@ -182,3 +182,17 @@ class TestCliDebugMode:
         assert stats["bogus"]["error"].startswith("unknown provider")
         # fetch produced nothing, but the seeded store still ranks fine
         assert r.returncode == 0, r.stderr
+
+class TestRedactionEdgeCases:
+    def test_key_args_redacted_even_if_unregistered(self, tmp_path):
+        dbg = DebugSession(args={"rentcast_key": "abc", "sources": "rentcast"})
+        report = json.loads(dbg.save(tmp_path).read_text())
+        assert report["meta"]["args"] == {"rentcast_key": REDACTED, "sources": "rentcast"}
+
+    def test_secret_needing_json_escape_is_redacted(self, tmp_path):
+        secret = 'key"with\\quote'
+        dbg = DebugSession()
+        dbg.add_secret(secret)
+        dbg.error = f"bad key {secret}"
+        report = json.loads(dbg.save(tmp_path).read_text())
+        assert secret not in report["error"] and REDACTED in report["error"]

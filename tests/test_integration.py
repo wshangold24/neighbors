@@ -391,3 +391,128 @@ class TestCliEndToEnd:
         prefs = json.loads((tmp_path / ".neighbors" / "preferences.json").read_text())
         assert prefs["max_price"] == 3500
         assert not (tmp_path / ".neighbors" / "store.db").exists()
+
+
+# --------------------------------------------------------------------------
+# Regression tests: budget, cache, persistence, and secrets edge cases
+# --------------------------------------------------------------------------
+
+class TestSafeSessionEdgeCases:
+    def test_retries_never_exceed_budget(self, http_server, tmp_path):
+        base, handler = http_server
+        s = make_session(tmp_path, budget=2, max_retries=3)
+        with pytest.raises(BudgetExceeded):
+            s.get(f"{base}/error")
+        assert s.spent == 2 and len(handler.hits["/error"]) == 2
+
+    def test_no_backoff_sleep_after_final_attempt(self, http_server, tmp_path):
+        base, _ = http_server
+        s = make_session(tmp_path, max_retries=1)
+        t0 = time.monotonic()
+        assert s.get(f"{base}/error") is None
+        assert time.monotonic() - t0 < 1.5, "slept 2s backoff with no retry left"
+
+    def test_cache_write_is_atomic_and_corrupt_entries_dropped(self, tmp_path):
+        from neighbors.http import DiskCache
+        cache = DiskCache(tmp_path)
+        cache.put("k", "body")
+        assert cache.get("k") == "body"
+        assert not list(tmp_path.glob("*.tmp")), "temp file left behind"
+        cache._path("k").write_text("{not json")
+        assert cache.get("k") is None and not cache._path("k").exists()
+
+
+class TestSharedDatabaseConcurrency:
+    """Two handles on one store.db (CLI + web UI) must not erase each
+    other's writes when the stale one saves."""
+
+    def test_store_saves_only_changed_records(self, tmp_path):
+        from neighbors.store import Store
+        db = tmp_path / "store.db"
+        seed = Store(db)
+        seed.upsert([Listing(id="a", source="t", url="u", address="1 A St",
+                             neighborhood="x", price=3000, beds=1, baths=1),
+                     Listing(id="b", source="t", url="u", address="2 B St",
+                             neighborhood="x", price=3000, beds=1, baths=1)])
+        seed.save()
+        first, second = Store(db), Store(db)
+        first.records()["1 a st"]["verify"] = {"status": "ok"}
+        first.save()
+        second.records()["2 b st"]["verify"] = {"status": "mismatch"}
+        second.save()
+        recs = Store(db).records()
+        assert recs["1 a st"]["verify"] == {"status": "ok"}
+        assert recs["2 b st"]["verify"] == {"status": "mismatch"}
+
+    def test_feedback_saves_are_merged(self, tmp_path):
+        from neighbors.feedback import Feedback
+        db = tmp_path / "store.db"
+        cli, web = Feedback(db), Feedback(db)
+        web.like("x")
+        web.mark_seen(["x"])
+        web.save()
+        cli.hide("y")
+        cli.mark_seen(["x"])
+        cli.save()
+        fb = Feedback(db)
+        assert "x" in fb.liked and "y" in fb.hidden and fb.seen["x"] == 2
+        fb.liked.pop("x")          # web's "clear" verdict edits the dict directly
+        fb.save()
+        assert Feedback(db).liked == {}
+
+    def test_quota_counts_from_concurrent_runs_add_up(self, tmp_path):
+        from neighbors.quota import QuotaLedger
+        db = tmp_path / "store.db"
+        a, b = QuotaLedger(db), QuotaLedger(db)
+        a.record("rentcast", 3)
+        b.record("rentcast", 4)
+        a.save()
+        b.save()
+        assert b.spent("rentcast") == 7
+        assert QuotaLedger(db).spent("rentcast") == 7
+        b.set_used("rentcast", 1)
+        b.record("rentcast", 1)
+        b.save()
+        assert QuotaLedger(db).spent("rentcast") == 2
+
+
+class TestProviderEdgeCases:
+    def test_saved_key_is_owner_only(self, monkeypatch, tmp_path):
+        import os
+        import stat
+        from neighbors.providers import rentcast
+        keyfile = tmp_path / "rentcast_key"
+        keyfile.write_text("old\n")
+        keyfile.chmod(0o644)
+        monkeypatch.setattr(rentcast, "KEY_FILE", keyfile)
+        old_umask = os.umask(0o022)
+        try:
+            rentcast.save_api_key(" new-key ")
+        finally:
+            os.umask(old_umask)
+        assert stat.S_IMODE(keyfile.stat().st_mode) == 0o600
+        assert keyfile.read_text() == "new-key\n"
+
+    def test_blank_explicit_key_falls_through(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("neighbors.providers.rentcast.KEY_FILE", tmp_path / "none")
+        monkeypatch.setenv("RENTCAST_API_KEY", "env-key")
+        assert resolve_api_key("  ") == "env-key"
+
+    def test_fallback_id_is_stable_across_processes(self):
+        import hashlib
+        body = json.dumps([{"formattedAddress": "1 Kent Ave, Brooklyn, NY 11249",
+                            "price": 3000, "bedrooms": 1, "bathrooms": 1}])
+        (listing,) = RentCastProvider(FixtureSession([]), api_key="k")._parse(body)
+        digest = hashlib.sha1(b"1 Kent Ave, Brooklyn, NY 11249").hexdigest()[:12]
+        assert listing.id == f"rc-{digest}"
+
+    def test_non_list_json_payloads_return_empty(self):
+        from neighbors.providers.socrata import soda_get
+        p = RentCastProvider(FixtureSession([]), api_key="k")
+        assert p._parse("null") == [] and p._parse("42") == []
+        assert soda_get(FixtureSession(["null"]), "abcd-1234", {}) == []
+
+    def test_deadline_rejects_invalid_dates(self):
+        assert HousingConnectProvider._deadline("2026-06-02T00:00:00.000") == "Jun 2, 2026"
+        assert HousingConnectProvider._deadline("2026-00-10") == ""
+        assert HousingConnectProvider._deadline(None) == ""

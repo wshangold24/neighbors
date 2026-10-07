@@ -24,7 +24,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from .models import Listing, Preferences, area_edge_km
+from .models import Listing, Preferences, area_edge_km, haversine_km
 
 DEFAULT_WEIGHTS = {
     "price": 3.0,
@@ -36,20 +36,18 @@ DEFAULT_WEIGHTS = {
 }
 
 
-def haversine_km(lat1, lon1, lat2, lon2) -> float:
-    r = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
+# Part for a feature whose value is missing on either side: a mild penalty,
+# never worst-case (invariant U — unknown ≠ absent).
+UNKNOWN_PART = 0.4
 
 
 @dataclass
 class Query:
-    """A point in feature space. Built from Preferences or a seed Listing."""
-    price: float
-    beds: float
-    baths: float
+    """A point in feature space. Built from Preferences or a seed Listing.
+    price/beds/baths may be None only for a seed listing with missing data."""
+    price: float | None
+    beds: float | None
+    baths: float | None
     lat: float | None
     lon: float | None
     sqft: float | None
@@ -58,7 +56,7 @@ class Query:
     # edge (0 if the listing is inside it) — precise NTA polygon if available,
     # else a disk (see models.area_edge_km). Empty for seed queries, which fall
     # back to lat/lon below.
-    neighborhoods: list = field(default_factory=list)
+    neighborhoods: list[str] = field(default_factory=list)
     max_price: float | None = None   # soft budget line (asymmetric penalty)
     min_price: float | None = None   # optional floor (directional mode only)
     # directional=True (preference queries): limits are one-sided —
@@ -89,7 +87,7 @@ class Query:
     @classmethod
     def from_listing(cls, l: Listing, max_price: float | None = None) -> "Query":
         return cls(
-            price=float(l.price),
+            price=float(l.price) if l.price is not None else None,
             beds=l.beds,
             baths=l.baths,
             lat=l.lat,
@@ -108,33 +106,42 @@ def distance(q: Query, l: Listing, weights: dict[str, float] | None = None,
     parts: dict[str, float] = {}
 
     # price
-    price_scale = max(q.price * 0.35, 500.0)
-    if q.directional:
-        # One-sided: anywhere within [min_price, max_price] costs nothing.
-        # Over budget is penalized hard; under the floor mildly.
-        d_price = 0.0
-        if q.max_price and l.price > q.max_price:
-            d_price = 2.5 * (l.price - q.max_price) / price_scale
-        elif q.min_price and l.price < q.min_price:
-            d_price = (q.min_price - l.price) / price_scale
+    if l.price is None or q.price is None:
+        parts["price"] = UNKNOWN_PART
     else:
-        # Symmetric (seed mode) with extra asymmetric penalty above budget.
-        d_price = abs(l.price - q.price) / price_scale
-        if q.max_price and l.price > q.max_price:
-            d_price += 2.0 * (l.price - q.max_price) / price_scale
-    parts["price"] = min(d_price, 3.0)
+        price_scale = max(q.price * 0.35, 500.0)
+        if q.directional:
+            # One-sided: anywhere within [min_price, max_price] costs nothing.
+            # Over budget is penalized hard; under the floor mildly.
+            d_price = 0.0
+            if q.max_price and l.price > q.max_price:
+                d_price = 2.5 * (l.price - q.max_price) / price_scale
+            elif q.min_price and l.price < q.min_price:
+                d_price = (q.min_price - l.price) / price_scale
+        else:
+            # Symmetric (seed mode) with extra asymmetric penalty above budget.
+            d_price = abs(l.price - q.price) / price_scale
+            if q.max_price and l.price > q.max_price:
+                d_price += 2.0 * (l.price - q.max_price) / price_scale
+        parts["price"] = min(d_price, 3.0)
 
     # beds: wanting 2 and getting 1 hurts more than getting 3
-    d_beds = (q.beds - l.beds) if l.beds < q.beds else 0.5 * (l.beds - q.beds)
-    parts["beds"] = min(abs(d_beds) / 2.0, 1.5)
+    if l.beds is None or q.beds is None:
+        parts["beds"] = UNKNOWN_PART
+    else:
+        d_beds = (q.beds - l.beds) if l.beds < q.beds else 0.5 * (l.beds - q.beds)
+        parts["beds"] = min(d_beds / 2.0, 1.5)
 
     # baths: fewer than wanted always hurts; extra baths are free in
     # directional mode (a bathroom floor, not a target)
-    if l.baths < q.baths:
-        d_baths = q.baths - l.baths
+    if l.baths is None or q.baths is None:
+        parts["baths"] = UNKNOWN_PART
     else:
-        d_baths = 0.0 if q.directional else 0.3 * (l.baths - q.baths)
-    parts["baths"] = min(abs(d_baths) / 2.0, 1.0)
+        if l.baths < q.baths:
+            d_baths = q.baths - l.baths
+        else:
+            d_baths = 0.0 if q.directional else 0.3 * (l.baths - q.baths)
+        parts["baths"] = min(d_baths / 2.0, 1.0)
 
     # location — distance to the nearest wanted neighborhood's AREA edge (0 if
     # the listing is inside it), using precise polygons when available else disks
@@ -145,7 +152,7 @@ def distance(q: Query, l: Listing, weights: dict[str, float] | None = None,
     elif q.lat is not None and l.lat is not None and q.lon is not None and l.lon is not None:
         parts["location"] = min(haversine_km(q.lat, q.lon, l.lat, l.lon) / 8.0, 1.5)
     else:
-        parts["location"] = 0.4  # unknown → mild penalty, not disqualifying
+        parts["location"] = UNKNOWN_PART
 
     # sqft (only if both sides known); min_sqft is a floor in directional
     # mode, so bigger is free
@@ -154,7 +161,7 @@ def distance(q: Query, l: Listing, weights: dict[str, float] | None = None,
             d_sqft = q.sqft - l.sqft
         else:
             d_sqft = 0.0 if q.directional else 0.3 * (l.sqft - q.sqft)
-        parts["sqft"] = min(abs(d_sqft) / 600.0, 1.0)
+        parts["sqft"] = min(d_sqft / 600.0, 1.0)
     elif q.sqft:
         parts["sqft"] = 0.3
     else:
@@ -170,7 +177,7 @@ def distance(q: Query, l: Listing, weights: dict[str, float] | None = None,
     # are penalized for a wanted one being genuinely absent.
     if q.amenities:
         provider = {a.lower() for a in l.amenities}
-        derived = {a.lower() for a in getattr(l, "derived_amenities", [])}
+        derived = {a.lower() for a in l.derived_amenities}
         if provider:
             # the source reported amenities → absence is meaningful; a derived
             # amenity (e.g. elevator from building records) also counts as present
@@ -180,7 +187,7 @@ def distance(q: Query, l: Listing, weights: dict[str, float] | None = None,
             # no source amenity data → unknown (mild), but each wanted amenity we
             # can positively confirm from building records pulls it toward 0
             confirmed = len(q.amenities & derived)
-            parts["amenities"] = 0.4 * (1.0 - confirmed / len(q.amenities))
+            parts["amenities"] = UNKNOWN_PART * (1.0 - confirmed / len(q.amenities))
     else:
         parts["amenities"] = 0.0
 
@@ -193,12 +200,8 @@ def knn(query: Query, listings: list[Listing], k: int = 15,
         exclude_ids: set[str] | None = None) -> list[tuple[Listing, float, dict]]:
     """Return top-k (listing, distance, per-feature parts), nearest first."""
     exclude_ids = exclude_ids or set()
-    scored = []
-    for l in listings:
-        if l.id in exclude_ids:
-            continue
-        d, parts = distance(query, l, weights, explain=True)
-        scored.append((l, d, parts))
+    scored = [(l, *distance(query, l, weights, explain=True))
+              for l in listings if l.id not in exclude_ids]
     scored.sort(key=lambda t: t[1])
     return scored[:k]
 

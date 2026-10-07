@@ -14,6 +14,7 @@ API key resolution (in order):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -21,7 +22,7 @@ import urllib.parse
 from pathlib import Path
 
 from ..models import Listing, Preferences, nearest_neighborhood
-from .base import Provider
+from .base import Provider, resolve_secret
 
 log = logging.getLogger("neighbors.rentcast")
 
@@ -32,20 +33,22 @@ RADIUS_MILES = 2.5         # around chosen-neighborhood centroid
 
 
 def resolve_api_key(explicit: str | None = None) -> str | None:
-    if explicit:
-        return explicit.strip()
-    env = os.environ.get("RENTCAST_API_KEY", "").strip()
-    if env:
-        return env
-    if KEY_FILE.exists():
-        return KEY_FILE.read_text().strip() or None
-    return None
+    return resolve_secret(explicit, "RENTCAST_API_KEY", KEY_FILE)
 
 
 def save_api_key(key: str) -> None:
+    """Write the key owner-only (0600). The file is created with that mode, so
+    it is never briefly readable by others, and an existing file is tightened."""
     KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    KEY_FILE.write_text(key.strip() + "\n")
-    KEY_FILE.chmod(0o600)
+    fd = os.open(KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        KEY_FILE.chmod(0o600)      # before writing: tighten a pre-existing file
+        f.write(key.strip() + "\n")
+
+
+def _stable_hash(text: str) -> str:
+    """Process-independent fallback id (builtin hash() is salted per run)."""
+    return hashlib.sha1(text.encode()).hexdigest()[:12]
 
 
 class RentCastProvider(Provider):
@@ -104,6 +107,9 @@ class RentCastProvider(Provider):
         if isinstance(data, dict):  # error payloads are dicts
             log.warning("rentcast: API error: %s", data.get("message", data))
             return []
+        if not isinstance(data, list):
+            log.warning("rentcast: unexpected response shape")
+            return []
         out = []
         for d in data:
             try:
@@ -111,7 +117,7 @@ class RentCastProvider(Provider):
                 hood = nearest_neighborhood(lat, lon) if lat and lon else ""
                 addr = d.get("formattedAddress") or d.get("addressLine1") or ""
                 out.append(Listing(
-                    id=f"rc-{d.get('id') or abs(hash(addr))}",
+                    id=f"rc-{d.get('id') or _stable_hash(addr)}",
                     source=self.name,
                     # RentCast has no listing page; link a search for the address.
                     url="https://www.google.com/search?q=" +

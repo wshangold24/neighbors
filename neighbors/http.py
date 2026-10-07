@@ -13,9 +13,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import random
 import time
-from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
@@ -70,26 +70,28 @@ class DiskCache:
 
     def get(self, key: str) -> Optional[str]:
         p = self._path(key)
-        if not p.exists():
-            return None
         try:
             entry = json.loads(p.read_text())
-            if time.time() - entry["ts"] > self.ttl:
-                # suppress instead of unlink(missing_ok=True): that kwarg
-                # needs Python 3.8+, and this must run on older interpreters
-                with suppress(FileNotFoundError):
-                    p.unlink()
-                return None
-            return entry["body"]
-        except Exception:
-            with suppress(FileNotFoundError):
-                p.unlink()
+            fresh = time.time() - entry["ts"] <= self.ttl
+            body = entry["body"]
+        except FileNotFoundError:
             return None
+        except (OSError, ValueError, KeyError, TypeError):
+            fresh, body = False, None    # unreadable/corrupt entry: drop it
+        if not fresh:
+            p.unlink(missing_ok=True)
+            return None
+        return body
 
     def put(self, key: str, body: str) -> None:
+        # write-then-rename so a concurrent reader never sees a partial file
+        p = self._path(key)
+        tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
         try:
-            self._path(key).write_text(json.dumps({"ts": time.time(), "body": body}))
+            tmp.write_text(json.dumps({"ts": time.time(), "body": body}))
+            os.replace(tmp, p)
         except OSError as e:
+            tmp.unlink(missing_ok=True)
             log.warning("cache write failed: %s", e)
 
 
@@ -126,10 +128,7 @@ class SafeSession:
         `headers` are merged per-request (e.g. API keys) and deliberately
         excluded from the cache key — never put anything in headers that
         changes the response body for the same URL+params."""
-        if params:
-            key = url + "?" + json.dumps(params, sort_keys=True)
-        else:
-            key = url
+        key = url + "?" + json.dumps(params, sort_keys=True) if params else url
 
         if use_cache:
             cached = self.cache.get(key)
@@ -139,21 +138,22 @@ class SafeSession:
                                      "event": "cache_hit"})
                 return cached
 
-        if self.spent >= self.budget:
-            self.history.append({"url": url, "params": params,
-                                 "event": "budget_exhausted"})
-            raise BudgetExceeded(
-                f"Request budget ({self.budget}) exhausted. "
-                "Raise --budget or wait for cache TTL."
-            )
-
         domain = url.split("/")[2]
-        backoff = 2.0
+        backoff, wait = 2.0, 0.0
         for attempt in range(1, self.max_retries + 1):
+            # checked per attempt: retries spend budget too
+            if self.spent >= self.budget:
+                self.history.append({"url": url, "params": params,
+                                     "event": "budget_exhausted"})
+                raise BudgetExceeded(
+                    f"Request budget ({self.budget}) exhausted. "
+                    "Try again later (cached responses are free)."
+                )
+            time.sleep(wait)
             self.limiter.wait(domain)
             self.spent += 1
             if self.spent >= self.budget:
-                log.warning("network budget nearly/fully spent (%d/%d)", self.spent, self.budget)
+                log.warning("network budget fully spent (%d/%d)", self.spent, self.budget)
             t0 = time.monotonic()
             try:
                 resp = self.session.get(url, params=params, timeout=self.timeout,
@@ -162,8 +162,7 @@ class SafeSession:
                 log.warning("request error (%s attempt %d): %s", domain, attempt, e)
                 self.history.append({"url": url, "params": params, "event": "exception",
                                      "error": str(e), "attempt": attempt})
-                time.sleep(backoff)
-                backoff *= 2
+                wait, backoff = backoff, backoff * 2
                 continue
 
             self.history.append({
@@ -176,17 +175,28 @@ class SafeSession:
             if resp.status_code == 200:
                 self.cache.put(key, resp.text)
                 return resp.text
-            if resp.status_code in (403, 401):
-                log.warning("%s blocked request (%d) — likely bot protection; not retrying", domain, resp.status_code)
+            if resp.status_code in (401, 403):
+                log.warning("%s blocked request (%d) — likely bot protection; not retrying",
+                            domain, resp.status_code)
                 return None
             if resp.status_code == 429 or resp.status_code >= 500:
-                retry_after = resp.headers.get("Retry-After")
-                wait = float(retry_after) if (retry_after or "").isdigit() else backoff
-                wait = min(wait, 60.0)
-                log.warning("%s returned %d; backing off %.0fs", domain, resp.status_code, wait)
-                time.sleep(wait)
+                retry_after = _retry_after(resp.headers.get("Retry-After"))
+                wait = min(backoff if retry_after is None else retry_after, 60.0)
                 backoff *= 2
+                if attempt < self.max_retries:
+                    log.warning("%s returned %d; backing off %.0fs",
+                                domain, resp.status_code, wait)
                 continue
             log.warning("%s returned %d; giving up", domain, resp.status_code)
             return None
+        log.warning("%s: giving up after %d attempts", domain, self.max_retries)
+        return None
+
+
+def _retry_after(value: Optional[str]) -> Optional[float]:
+    """Seconds from a Retry-After header (delta-seconds form only; the
+    HTTP-date form falls back to our own backoff)."""
+    try:
+        return max(0.0, float(value)) if value else None
+    except ValueError:
         return None

@@ -11,8 +11,8 @@ Everything here lives in three files:
 
 - `knn.py` — the soft score (`distance()`), weights, and match % (`match_pct()`).
 - `engine.py` — the hard gate (`acceptable_rules()`) and the two-stage `rank()`.
-- `web.py` — how the score becomes the UI's compatibility panel (`_deltas`,
-  `_trust`, `_priority_map`) and the sort-only nudges.
+- `views.py` / `webapi.py` — how the score becomes the UI's compatibility panel
+  (`views.deltas`, `views.trust`, `Api._priority_map`) and the sort-only nudges.
 
 Tests: `tests/test_functionality.py` (soft score per feature), `tests/test_engine.py`
 (gate + rank).
@@ -209,7 +209,7 @@ The panel is a direct read-out of the `parts` above (no separate math):
   the overall exponential `match_pct` — don't conflate them.)
 - **Row order** = `part[feature] · weight[feature]` descending — i.e. what's
   actually costing the listing the most points.
-- **Plain-language notes** come from `_deltas`: "$180 over budget", "1.4 km from
+- **Plain-language notes** come from `views.deltas`: "$180 over budget", "1.4 km from
   your area" (nearest neighborhood), "1 bed fewer than you want", "size not
   listed", "missing dishwasher", "amenities not listed".
 - Perfect rows are compressed to one green line; weight shown as `•/••/•••`.
@@ -223,7 +223,8 @@ one has a regression test; keep it that way.
 
 - **U — Unknown ≠ absent.** Missing data is a *mild* penalty in the score and a
   *pass* in the gate, never worst-case. Holds for amenities (0.4 unknown), sqft
-  (0.3), location (0.4 for missing coords), and every "…or unknown" gate rule.
+  (0.3), location (0.4 for missing coords), missing price/beds/baths (0.4), and
+  every "…or unknown" gate rule.
   *Violated once →* every data-less listing scored amenities as a total miss and
   match % cratered across the board.
 - **L — Location is a nearest-neighborhood AREA, not a point/centroid.** Two
@@ -240,8 +241,10 @@ one has a regression test; keep it that way.
   commute penalties are added to the sort key only; `Ranked.score` stays pure.
   Otherwise trust/commute would masquerade as preference fit.
 - **D — Directionality.** In preference mode, *better than asked* is free
-  (cheaper, extra beds/baths/sqft). Only shortfalls cost. Don't penalize a $3,200
-  listing when your cap is $3,500.
+  (cheaper, extra baths/sqft). Only shortfalls cost — the one exception is
+  beds, where an extra bedroom costs half as much as a missing one (see the
+  beds formula above), since you'd be paying for space you didn't ask for.
+  Don't penalize a $3,200 listing when your cap is $3,500.
 - **G — Likes never escape the gate.** `α` only reorders inside the acceptable
   region; a liked expensive place can't pull over-budget listings in.
 - **F — Facts vs guesses.** Derived amenities (facts) credit the score and are

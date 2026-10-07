@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
+from datetime import datetime
 
 from ..models import Listing, Preferences, nearest_neighborhood
 from .base import Provider
@@ -96,17 +97,13 @@ class HousingConnectProvider(Provider):
         return out
 
     @staticmethod
-    def _deadline(raw: str) -> str:
+    def _deadline(raw: str | None) -> str:
         """'2026-06-02T00:00:00.000' -> 'Jun 2, 2026' (or '' if unparseable)."""
-        raw = (raw or "")[:10]
         try:
-            from datetime import date
-            y, m, day = (int(x) for x in raw.split("-"))
-            months = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-            return f"{months[m]} {day}, {y}"
-        except (ValueError, IndexError):
+            d = datetime.strptime((raw or "")[:10], "%Y-%m-%d")
+        except ValueError:
             return ""
+        return f"{d:%b} {d.day}, {d.year}"
 
     def _one(self, d: dict, prefs: Preferences, meta: dict) -> Listing | None:
         house = (d.get("house_number") or "").strip()

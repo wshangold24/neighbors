@@ -22,6 +22,30 @@ from neighbors.providers.demo import DemoProvider  # noqa: E402
 from neighbors.store import Store  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def isolate_user_data(tmp_path_factory, monkeypatch):
+    """Never let a test read or write the developer's real ~/.neighbors: saved
+    API keys there would turn a test into a live (quota-spending) request.
+    Module-level paths are resolved at import time, so patch them too."""
+    from neighbors import cli, debug
+    from neighbors.providers import rentcast, socrata
+
+    home = tmp_path_factory.mktemp("home")
+    app_dir = home / ".neighbors"
+    monkeypatch.setenv("HOME", str(home))
+    for var in ("RENTCAST_API_KEY", "NYC_APP_TOKEN"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(rentcast, "KEY_FILE", app_dir / "rentcast_key")
+    monkeypatch.setattr(socrata, "TOKEN_FILE", app_dir / "nyc_app_token")
+    monkeypatch.setattr(debug, "DEBUG_DIR", app_dir / "debug")
+    monkeypatch.setattr(cli, "APP_DIR", app_dir)
+    monkeypatch.setattr(cli, "PREFS_FILE", app_dir / "preferences.json")
+    monkeypatch.setattr(cli, "CACHE_DIR", app_dir / "cache")
+    monkeypatch.setattr(cli, "DB_FILE", app_dir / "store.db")
+    monkeypatch.setattr(cli, "WEIGHTS_FILE", app_dir / "weights.json")
+    monkeypatch.setattr(cli, "MANIFEST_FILE", app_dir / "cache" / "manifest.jsonl")
+
+
 class Handler(BaseHTTPRequestHandler):
     """Scriptable endpoints: /ok, /forbidden, /flaky (429 once, then 200),
     /error (always 500). Records request timestamps per path."""

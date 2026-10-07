@@ -1,17 +1,14 @@
-"""Interactive CLI for apartment KNN search.
+"""The `neighbors` command.
 
-Command structure (positional command + shared option flags):
-
-  neighbors [search]        one-shot: fetch → merge into store → rank → print
-  neighbors engine          iterative session: rank + like/hide feedback loop
-  neighbors web             local browser UI (see docs/WEB_GUIDE.md)
-  neighbors cache-status    what's cached, from which prefs, how stale
-  neighbors quota           monthly API usage per provider (--set-used to sync)
+  neighbors [search]        fetch → merge into store → rank → print
+  neighbors web             the full web app (see docs/WEB_GUIDE.md)
+  neighbors engine          iterative like/hide session
+  neighbors cache-status    what's been fetched, from which prefs, how stale
+  neighbors quota           monthly API usage per provider
   neighbors weights         current ranking weights (learned or default)
 
-
-This module is the imperative shell (I/O, prompting, printing); all ranking
-and planning logic lives in pure modules (engine, knn, store, manifest, …).
+This module is the imperative shell (I/O, prompting, printing); ranking and
+fetch planning live in pure modules (engine, knn, manifest, …).
 """
 
 from __future__ import annotations
@@ -19,7 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
+import os
 import time
 import traceback
 from pathlib import Path
@@ -39,9 +36,7 @@ from .store import Store
 APP_DIR = Path.home() / ".neighbors"
 PREFS_FILE = APP_DIR / "preferences.json"
 CACHE_DIR = APP_DIR / "cache"
-STORE_FILE = APP_DIR / "store.db"
-FEEDBACK_FILE = APP_DIR / "store.db"   # feedback lives in the shared SQLite DB
-QUOTA_FILE = APP_DIR / "store.db"      # quota ledger too
+DB_FILE = APP_DIR / "store.db"   # listings, feedback and quota share one SQLite DB
 WEIGHTS_FILE = APP_DIR / "weights.json"
 MANIFEST_FILE = CACHE_DIR / "manifest.jsonl"
 
@@ -122,12 +117,12 @@ def resolve_sources(args, prefs: Preferences) -> list[str]:
 
 
 def load_prefs() -> Preferences | None:
-    if PREFS_FILE.exists():
-        try:
-            return Preferences.from_dict(json.loads(PREFS_FILE.read_text()))
-        except (json.JSONDecodeError, TypeError):
-            return None
-    return None
+    """Saved preferences, or None if absent or unreadable."""
+    try:
+        data = json.loads(PREFS_FILE.read_text())
+        return Preferences.from_dict(data) if isinstance(data, dict) else None
+    except (OSError, ValueError, TypeError):
+        return None
 
 
 def save_prefs(p: Preferences) -> None:
@@ -170,7 +165,7 @@ def fetch_listings(prefs: Preferences, sources: list[str],
     can't lock the app into showing nothing."""
     session = SafeSession(CACHE_DIR, budget=budget, min_interval=min_interval)
     manifest = Manifest(MANIFEST_FILE)
-    ledger = QuotaLedger(QUOTA_FILE)
+    ledger = QuotaLedger(DB_FILE)
     decisions = {d.provider: d for d in
                  plan_fetch(prefs, sources, manifest, ledger, COVERAGE_TTL_S,
                             ignore_coverage=ignore_coverage)}
@@ -285,47 +280,81 @@ def mode_seed(prefs: Preferences, listings: list[Listing], seed_ref: str,
 
 # ---------- main ----------
 
-def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(
-        prog="neighbors",
-        description="NYC rental KNN search — surfaces near-miss listings strict filters hide.",
-    )
-    ap.add_argument("command", nargs="?", default="search",
-                    choices=["search", "engine", "web", "cache-status", "quota", "weights"],
-                    help="search (default) | engine: iterative like/hide session | "
-                         "web: local browser UI | cache-status | quota | weights")
-    ap.add_argument("--sources", default=None,
-                    help=f"comma-separated providers ({', '.join(PROVIDERS)}); "
-                         "overrides the saved sources preference for this run")
-    ap.add_argument("--alpha", type=float, default=DEFAULT_ALPHA,
-                    help="engine drift knob: share of score from preferences vs "
-                         f"liked seeds, 0..1 (default {DEFAULT_ALPHA}; 1 = ignore likes)")
-    ap.add_argument("--plan", action="store_true",
-                    help="with engine: show per-provider fetch decisions and exit")
-    ap.add_argument("--reset-weights", action="store_true",
-                    help="with weights: delete learned weights, back to defaults")
-    ap.add_argument("--set-used", metavar="PROVIDER=N",
-                    help="with quota: sync this month's count with the provider's "
-                         "dashboard (e.g. rentcast=4)")
-    ap.add_argument("--port", type=int, default=8787,
-                    help="with web: port for the local web UI (default 8787)")
-    ap.add_argument("--no-browser", action="store_true",
-                    help="with web: don't auto-open a browser")
-    ap.add_argument("--rentcast-key", metavar="KEY",
-                    help="RentCast API key; saved to ~/.neighbors/rentcast_key for future runs")
-    ap.add_argument("--cached", action="store_true",
-                    help="reuse last fetched listings; no network at all")
-    ap.add_argument("--like", metavar="REF",
-                    help="seed mode: find listings similar to result #N or listing id")
-    ap.add_argument("--prefs", action="store_true",
-                    help="update saved preferences and exit — no fetching or searching")
-    ap.add_argument("--reset-prefs", action="store_true",
-                    help="re-prompt all preferences, then continue with the search")
-    ap.add_argument("--debug", action="store_true",
-                    help="write a paste-able per-run diagnostic report into ~/.neighbors/debug/")
-    ap.add_argument("-v", "--verbose", action="store_true")
-    args = ap.parse_args(argv)
+COMMANDS = ["search", "engine", "web", "cache-status", "quota", "weights"]
 
+DESCRIPTION = """\
+Find NYC rentals that fit — including the near-misses strict filters hide.
+
+  neighbors              fetch new listings, rank them, print the best matches
+  neighbors web          open the full web app in your browser
+
+other commands:
+  search                 same as plain `neighbors`
+  engine                 interactive like/hide session that learns your taste
+  cache-status           what has been fetched, and how fresh it is
+  quota                  this month's API usage per provider
+  weights                current ranking weights (learned or default)
+"""
+
+
+def _bounded(cast, lo, hi):
+    """argparse type: `cast(raw)` within [lo, hi], with a readable error."""
+    def parse(raw: str):
+        try:
+            value = cast(raw)
+        except ValueError:
+            value = None
+        if value is None or not lo <= value <= hi:
+            raise argparse.ArgumentTypeError(f"expected a value from {lo} to {hi}, got '{raw}'")
+        return value
+    return parse
+
+
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(
+        prog="neighbors", usage="neighbors [command] [options]",
+        description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("command", nargs="?", default="search", choices=COMMANDS,
+                    help=argparse.SUPPRESS)
+
+    search = ap.add_argument_group("search options")
+    search.add_argument("--cached", action="store_true",
+                        help="re-rank the listings already stored; no network")
+    search.add_argument("--prefs", action="store_true",
+                        help="edit saved preferences and exit")
+    search.add_argument("--reset-prefs", action="store_true",
+                        help="re-enter all preferences, then search")
+    search.add_argument("--like", metavar="REF",
+                        help="show listings similar to result #N or a listing id")
+    search.add_argument("--sources", metavar="LIST",
+                        help=f"comma-separated providers for this run ({', '.join(PROVIDERS)})")
+    search.add_argument("--rentcast-key", metavar="KEY",
+                        help="RentCast API key (saved to ~/.neighbors/rentcast_key)")
+
+    web = ap.add_argument_group("web options")
+    web.add_argument("--port", type=_bounded(int, 0, 65535), default=8787,
+                     help="port for the web app (default 8787)")
+    web.add_argument("--no-browser", action="store_true",
+                     help="don't open a browser automatically")
+
+    other = ap.add_argument_group("other options")
+    other.add_argument("--alpha", type=_bounded(float, 0.0, 1.0), default=DEFAULT_ALPHA,
+                       help=f"engine: weight on preferences vs. liked listings, 0..1 "
+                            f"(default {DEFAULT_ALPHA})")
+    other.add_argument("--plan", action="store_true",
+                       help="engine: show what would be fetched, then exit")
+    other.add_argument("--set-used", metavar="PROVIDER=N",
+                       help="quota: sync this month's count with the provider's dashboard")
+    other.add_argument("--reset-weights", action="store_true",
+                       help="weights: discard learned weights")
+    other.add_argument("--debug", action="store_true",
+                       help="write a shareable diagnostic report to ~/.neighbors/debug/")
+    other.add_argument("-v", "--verbose", action="store_true", help="verbose logging")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if (args.verbose or args.debug) else logging.WARNING,
         format="%(name)s: %(message)s")
@@ -334,7 +363,6 @@ def main(argv=None) -> int:
     if args.debug:
         dbg = DebugSession(args=vars(args))
         dbg.add_secret(args.rentcast_key)
-        import os
         dbg.add_secret(os.environ.get("RENTCAST_API_KEY"))
 
     exit_code = 0
@@ -362,8 +390,13 @@ def _run(args, dbg: DebugSession | None) -> int:
     if args.command in informational:
         return informational[args.command](args)
     if args.command == "web":
-        from .web import serve  # lazy: web imports cli for /api/fetch
-        serve(APP_DIR, args.port, open_browser=not args.no_browser)
+        from .web import serve  # lazy: the web app imports cli for fetching
+        try:
+            serve(APP_DIR, args.port, open_browser=not args.no_browser)
+        except OSError as e:
+            print(f"  ! Can't start the web app on port {args.port}: {e.strerror or e}.")
+            print("    Is it already running? Try another port with --port.")
+            return 1
         return 0
 
     if args.prefs:  # prefs-only mode: edit + save, touch nothing else
@@ -393,7 +426,7 @@ def _run(args, dbg: DebugSession | None) -> int:
 def _load_store_listings(args, prefs, dbg) -> tuple[Store, list[Listing]] | None:
     """Shared fetch-then-read-store step for search and engine. Returns None
     (after printing why) when there is nothing to rank."""
-    store = Store(STORE_FILE)
+    store = Store(DB_FILE)
     if args.cached:
         if len(store) == 0:
             print("  No stored listings yet — run once without --cached first.")
@@ -455,7 +488,7 @@ ENGINE_HELP = ("  commands: like N | hide N | open N | r (re-rank) | q (quit)")
 def cmd_engine(args, prefs: Preferences, dbg: DebugSession | None) -> int:
     if args.plan:  # dry run: show fetch decisions, spend nothing
         decisions = plan_fetch(prefs, resolve_sources(args, prefs), Manifest(MANIFEST_FILE),
-                               QuotaLedger(QUOTA_FILE), COVERAGE_TTL_S)
+                               QuotaLedger(DB_FILE), COVERAGE_TTL_S)
         print("\n  Fetch plan (nothing executed):")
         for d in decisions:
             print(f"    {d.provider:<12} {d.action:<6} {d.reason}")
@@ -466,7 +499,7 @@ def cmd_engine(args, prefs: Preferences, dbg: DebugSession | None) -> int:
     if loaded is None:
         return 1
     store, listings = loaded
-    feedback = Feedback(FEEDBACK_FILE)
+    feedback = Feedback(DB_FILE)
     weights = load_weights(WEIGHTS_FILE)
     if weights:
         print("  Using learned weights (neighbors weights to inspect).")
@@ -509,8 +542,8 @@ def cmd_engine(args, prefs: Preferences, dbg: DebugSession | None) -> int:
                 print(f"  opened {listing.url}")
             else:
                 getattr(feedback, cmd)(listing.id)
-                print(f"  {cmd}d: {listing.address} "
-                      "(r to re-rank with this feedback)")
+                verb = "liked" if cmd == "like" else "hidden"
+                print(f"  {verb}: {listing.address} (r to re-rank with this feedback)")
             continue
         print(ENGINE_HELP)
 
@@ -533,7 +566,7 @@ def _maybe_learn_weights(prefs: Preferences, store: Store, feedback: Feedback) -
 # ---------- informational commands ----------
 
 def cmd_cache_status(args) -> int:
-    manifest, store = Manifest(MANIFEST_FILE), Store(STORE_FILE)
+    manifest, store = Manifest(MANIFEST_FILE), Store(DB_FILE)
     entries = manifest.entries()
     print(f"\n  Store: {len(store)} listings ({len(store.active())} active)")
     if not entries:
@@ -553,13 +586,15 @@ def cmd_cache_status(args) -> int:
 
 
 def cmd_quota(args) -> int:
-    ledger = QuotaLedger(QUOTA_FILE)
+    ledger = QuotaLedger(DB_FILE)
     if args.set_used:
         provider, _, n = args.set_used.partition("=")
-        if not n.isdigit():
-            print("  usage: quota --set-used PROVIDER=N  (e.g. rentcast=4)")
+        provider, n = provider.strip(), n.strip()
+        if provider not in PROVIDERS or not n.isdigit():
+            print("  usage: quota --set-used PROVIDER=N  (e.g. rentcast=4; "
+                  f"providers: {', '.join(PROVIDERS)})")
             return 1
-        ledger.set_used(provider.strip(), int(n))
+        ledger.set_used(provider, int(n))
         ledger.save()
         print(f"  {provider}: count set to {n} for this month.")
     summary = ledger.summary()
@@ -577,9 +612,7 @@ def cmd_quota(args) -> int:
 
 def cmd_weights(args) -> int:
     if args.reset_weights:
-        from contextlib import suppress
-        with suppress(FileNotFoundError):  # unlink(missing_ok=) needs py3.8+
-            WEIGHTS_FILE.unlink()
+        WEIGHTS_FILE.unlink(missing_ok=True)
         print("  Learned weights deleted — back to defaults.")
         return 0
     learned = load_weights(WEIGHTS_FILE)
@@ -597,4 +630,4 @@ def cmd_weights(args) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

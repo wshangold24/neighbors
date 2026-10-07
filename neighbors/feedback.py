@@ -6,17 +6,15 @@ Verdicts survive across runs and drive two things:
     and, with enough of them, teach the feature weights (see learn.py)
 
 Stored in the shared SQLite database (`store.db`) alongside the listings —
-tables `feedback(id, kind, ts)` and `seen(id, n)`. A legacy `feedback.json` is
-imported once on first open. The in-memory dicts and method signatures are
-unchanged, so callers are unaffected.
+tables `feedback(id, kind, ts)` and `seen(id, n)`.
 """
 
 from __future__ import annotations
 
-import json
-import sqlite3
 import time
 from pathlib import Path
+
+from .store import open_db
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS feedback (id TEXT, kind TEXT, ts REAL, PRIMARY KEY (id, kind));
@@ -25,64 +23,45 @@ CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY, n INTEGER);
 
 
 class Feedback:
+    """In-memory `liked`/`hidden` ({id: timestamp}) and `seen` ({id: count})
+    dicts, persisted by save().
+
+    Callers may also edit the dicts directly. save() writes only the difference
+    from what was loaded — verdicts set or removed, and seen-count increments —
+    so a long-lived instance (an interactive CLI session) can't wipe out
+    verdicts another process (the web UI) saved in the meantime."""
+
     def __init__(self, path: Path):
         self.path = Path(path)
-        self.liked, self.hidden, self.seen = self._load()
-        if not (self.liked or self.hidden or self.seen) and self._migrate_legacy_json():
-            self.liked, self.hidden, self.seen = self._load()
-
-    def _connect(self) -> sqlite3.Connection:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.path, timeout=5.0)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.executescript(_SCHEMA)
-        return conn
-
-    def _load(self) -> tuple[dict, dict, dict]:
-        conn = self._connect()
-        try:
-            liked: dict[str, float] = {}
-            hidden: dict[str, float] = {}
+        self.liked: dict[str, float] = {}
+        self.hidden: dict[str, float] = {}
+        self.seen: dict[str, int] = {}
+        with open_db(self.path, _SCHEMA) as conn:
             for lid, kind, ts in conn.execute("SELECT id, kind, ts FROM feedback"):
-                (liked if kind == "liked" else hidden)[lid] = ts
-            seen = {lid: n for lid, n in conn.execute("SELECT id, n FROM seen")}
-        finally:
-            conn.close()
-        return liked, hidden, seen
+                (self.liked if kind == "liked" else self.hidden)[lid] = ts
+            self.seen = dict(conn.execute("SELECT id, n FROM seen"))
+        self._snapshot()
 
-    def _migrate_legacy_json(self) -> bool:
-        legacy = self.path.parent / "feedback.json"
-        if legacy == self.path or not legacy.exists():
-            return False
-        try:
-            data = json.loads(legacy.read_text())
-        except (json.JSONDecodeError, OSError):
-            return False
-        conn = self._connect()
-        try:
-            self._write(conn, data.get("liked", {}), data.get("hidden", {}),
-                        data.get("seen", {}))
-            conn.commit()
-        finally:
-            conn.close()
-        return True
-
-    @staticmethod
-    def _write(conn, liked: dict, hidden: dict, seen: dict) -> None:
-        conn.execute("DELETE FROM feedback")
-        conn.execute("DELETE FROM seen")
-        conn.executemany("INSERT INTO feedback (id, kind, ts) VALUES (?, ?, ?)",
-                         [(k, "liked", v) for k, v in liked.items()] +
-                         [(k, "hidden", v) for k, v in hidden.items()])
-        conn.executemany("INSERT INTO seen (id, n) VALUES (?, ?)", list(seen.items()))
+    def _snapshot(self) -> None:
+        self._saved = {"liked": dict(self.liked), "hidden": dict(self.hidden)}
+        self._saved_seen = dict(self.seen)
 
     def save(self) -> None:
-        conn = self._connect()
-        try:
-            self._write(conn, self.liked, self.hidden, self.seen)
-            conn.commit()
-        finally:
-            conn.close()
+        with open_db(self.path, _SCHEMA) as conn:
+            for kind, current in (("liked", self.liked), ("hidden", self.hidden)):
+                before = self._saved[kind]
+                conn.executemany("DELETE FROM feedback WHERE id = ? AND kind = ?",
+                                 [(lid, kind) for lid in before if lid not in current])
+                conn.executemany(
+                    "INSERT OR REPLACE INTO feedback (id, kind, ts) VALUES (?, ?, ?)",
+                    [(lid, kind, ts) for lid, ts in current.items()
+                     if before.get(lid) != ts])
+            conn.executemany(
+                "INSERT INTO seen (id, n) VALUES (?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET n = n + excluded.n",
+                [(lid, n - self._saved_seen.get(lid, 0)) for lid, n in self.seen.items()
+                 if n != self._saved_seen.get(lid, 0)])
+        self._snapshot()
 
     def mark_seen(self, listing_ids: list[str]) -> None:
         """Remember what was shown, so repeat results can be flagged and each

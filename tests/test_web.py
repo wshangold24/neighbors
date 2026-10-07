@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+import urllib.error
 import urllib.request
 
 import pytest
@@ -15,6 +16,7 @@ from .conftest import seed_home
 from neighbors.feedback import Feedback
 from neighbors.models import Preferences
 from neighbors.quota import QuotaLedger
+from neighbors.views import features_to_amenities
 from neighbors.web import Api, make_server
 
 
@@ -28,12 +30,18 @@ def web(tmp_path):
     t.start()
     base = f"http://127.0.0.1:{server.server_port}"
 
-    def call(path: str, body: dict | None = None) -> dict | str:
+    def call(path: str, body: dict | None = None, status: int = 200) -> dict | str:
+        """Request `path` (POST if `body` given); assert the HTTP status."""
         req = urllib.request.Request(base + path)
         if body is not None:
             req.data = json.dumps(body).encode()
             req.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        try:
+            resp = urllib.request.urlopen(req, timeout=10)
+        except urllib.error.HTTPError as e:
+            resp = e
+        with resp:
+            assert resp.status == status, (path, resp.status)
             raw = resp.read().decode()
             return json.loads(raw) if "json" in resp.headers["Content-Type"] else raw
 
@@ -292,11 +300,10 @@ class TestVerifyEndpoint:
         assert len(res["results"]) == full     # …but nothing vanished
 
     def test_features_to_amenities_maps_cooling_and_garage(self, tmp_path):
-        api = Api(tmp_path)
         body = json.dumps([{"features": {"cooling": True, "garageSpaces": 2}}])
-        assert set(api._features_to_amenities(body)) == {"central_air", "parking"}
-        assert api._features_to_amenities(None) == []
-        assert api._features_to_amenities(json.dumps([{"features": {}}])) == []
+        assert set(features_to_amenities(body)) == {"central_air", "parking"}
+        assert features_to_amenities(None) == []
+        assert features_to_amenities(json.dumps([{"features": {}}])) == []
 
     def test_enrich_unknown_listing_errors(self, tmp_path):
         seed_home(tmp_path)
@@ -449,7 +456,7 @@ class TestWebApi:
 
     def test_boroughs_reject_unknown(self, web):
         call, _ = web
-        assert "error" in call("/api/prefs", {"boroughs": ["Atlantis"]})
+        assert "error" in call("/api/prefs", {"boroughs": ["Atlantis"]}, status=400)
 
     def test_state_exposes_neighborhood_region_map(self, web):
         call, _ = web
@@ -470,7 +477,7 @@ class TestWebApi:
 
     def test_search_area_polygon_filters(self, tmp_path):
         from neighbors.models import NEIGHBORHOOD_COORDS
-        from neighbors.web import _point_in_poly
+        from neighbors.webapi import point_in_poly
         seed_home(tmp_path)
         api = Api(tmp_path / ".neighbors")
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
@@ -479,7 +486,7 @@ class TestWebApi:
         poly = [(wlat + d, wlon), (wlat, wlon + d), (wlat - d, wlon), (wlat, wlon - d)]
         res = api.results(poly=poly)["results"]
         assert res, "expected some listings inside the shape"
-        assert all(_point_in_poly(r["lat"], r["lon"], poly) for r in res)
+        assert all(point_in_poly(r["lat"], r["lon"], poly) for r in res)
         # it should exclude at least one listing that's outside the diamond
         assert len(res) < len(api.results()["results"])
         # a degenerate polygon (<3 pts) is ignored → full results
@@ -497,7 +504,7 @@ class TestWebApi:
 
     def test_exclude_rejects_unknown_neighborhood(self, web):
         call, _ = web
-        r = call("/api/prefs", {"exclude_neighborhoods": ["atlantis"]})
+        r = call("/api/prefs", {"exclude_neighborhoods": ["atlantis"]}, status=400)
         assert "error" in r
 
     def test_wanted_and_excluded_are_mutually_exclusive(self, web):
@@ -527,11 +534,11 @@ class TestWebApi:
 
     def test_prefs_rejects_unknown_multiselect_values(self, web):
         call, app_dir = web
-        r = call("/api/prefs", {"neighborhoods": ["narnia"]})
+        r = call("/api/prefs", {"neighborhoods": ["narnia"]}, status=400)
         assert "unknown values: narnia" in r["error"]
-        r2 = call("/api/prefs", {"amenities": ["moat"]})
+        r2 = call("/api/prefs", {"amenities": ["moat"]}, status=400)
         assert "moat" in r2["error"]
-        r3 = call("/api/prefs", {"sources": ["zillow"]})
+        r3 = call("/api/prefs", {"sources": ["zillow"]}, status=400)
         assert "zillow" in r3["error"]
         # nothing was persisted
         on_disk = json.loads((app_dir / "preferences.json").read_text())
@@ -549,11 +556,8 @@ class TestWebApi:
 
     def test_unknown_routes_404(self, web):
         call, _ = web
-        try:
-            call("/api/nope")
-            assert False, "expected 404"
-        except urllib.error.HTTPError as e:
-            assert e.code == 404
+        assert call("/api/nope", status=404) == {"error": "not found"}
+        assert "error" in call("/api/nope", {}, status=404)
 
     def test_source_links_present(self, web):
         call, _ = web
@@ -642,7 +646,8 @@ class TestWebApi:
         (guard-level failure here, so no network)."""
         call, app_dir = web
         before = (app_dir / "preferences.json").read_text()
-        r = call("/api/prefs", {"places": [{"name": "Gym", "street": "x", "city": ""}]})
+        r = call("/api/prefs", {"places": [{"name": "Gym", "street": "x", "city": ""}]},
+                 status=400)
         assert "couldn't locate: Gym" in r["error"]
         assert (app_dir / "preferences.json").read_text() == before
 
@@ -662,3 +667,172 @@ class TestWebApi:
         assert r["ok"]
         assert r["prefs"]["places"][0]["lat"] == 40.7527
         assert r["prefs"]["places"][0]["name"] == "Job"
+
+
+class TestRequestRobustness:
+    """Malformed requests get a 4xx JSON error — never a 500, a dropped
+    connection, or bad data persisted."""
+
+    @staticmethod
+    def _raw(app_dir, method: str, path: str, body: bytes = b"",
+             headers: dict | None = None) -> tuple[int, dict]:
+        import http.client
+        server = make_server(app_dir, port=0)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=10)
+            conn.putrequest(method, path)
+            for k, v in {"Content-Length": str(len(body)), **(headers or {})}.items():
+                conn.putheader(k, v)
+            conn.endheaders(body)
+            resp = conn.getresponse()
+            return resp.status, json.loads(resp.read())
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    @pytest.mark.parametrize("query", ["alpha=abc", "alpha=2", "alpha=nan",
+                                       "bbox=1,2,3", "bbox=a,b,c,d", "poly=1,2,3,4",
+                                       "poly=1,2,3,4,5,6,7"])
+    def test_bad_results_query_is_400(self, web, query):
+        call, _ = web
+        assert "error" in call(f"/api/results?{query}", status=400)
+
+    @pytest.mark.parametrize("body", [b"{not json", b"[1, 2]", b"null", b'"x"', b"\xff\xfe"])
+    def test_malformed_post_body_is_400(self, tmp_path, body):
+        status, data = self._raw(tmp_path, "POST", "/api/prefs", body)
+        assert status == 400 and "error" in data
+
+    def test_bad_content_length_is_400(self, tmp_path):
+        status, _ = self._raw(tmp_path, "POST", "/api/fetch",
+                              headers={"Content-Length": "abc"})
+        assert status == 400
+        status, _ = self._raw(tmp_path, "POST", "/api/fetch",
+                              headers={"Content-Length": "-1"})
+        assert status == 400
+
+    def test_oversized_body_is_413(self, tmp_path):
+        status, _ = self._raw(tmp_path, "POST", "/api/prefs",
+                              headers={"Content-Length": str(10 ** 8)})
+        assert status == 413
+
+    def test_wrong_method_is_405(self, web):
+        call, _ = web
+        call("/api/feedback", status=405)
+        call("/api/state", {}, status=405)
+
+    def test_no_file_serving_beyond_the_page(self, web):
+        call, _ = web
+        for path in ("/../neighbors/cli.py", "/web.html", "/%2e%2e/pyproject.toml",
+                     "/api/../../etc/passwd"):
+            call(path, status=404)
+
+    def test_feedback_requires_listing_id(self, web):
+        call, app_dir = web
+        call("/api/feedback", {"verdict": "like"}, status=400)
+        call("/api/feedback", {"id": 5, "verdict": "like"}, status=400)
+        call("/api/feedback", {"id": "x", "verdict": "love"}, status=400)
+        assert Feedback(app_dir / "store.db").liked == {}
+
+    @pytest.mark.parametrize("fields", [{"max_price": "abc"}, {"boroughs": None},
+                                        {"beds": True}, {"k": -1}, {"min_sqft": "5"},
+                                        {"places": ["work"]}, {"verify_priority": ["x"]},
+                                        {"area": "everywhere"}])
+    def test_wrongly_typed_prefs_rejected_not_persisted(self, web, fields):
+        call, app_dir = web
+        before = (app_dir / "preferences.json").read_text()
+        if "verify_priority" in fields:   # coerced to the default, not rejected
+            assert call("/api/prefs", fields)["prefs"]["verify_priority"] == "gentle"
+            return
+        assert "error" in call("/api/prefs", fields, status=400)
+        assert (app_dir / "preferences.json").read_text() == before
+        assert call("/api/results")["results"]       # still serves results
+
+    def test_bad_place_coordinates_fall_back_to_geocode(self, web):
+        call, _ = web
+        r = call("/api/prefs", {"places": [{"name": "Gym", "street": "1 Main St",
+                                            "city": "", "lat": "x", "lon": None}]},
+                 status=400)
+        assert "couldn't locate: Gym" in r["error"]
+
+    def test_malformed_area_does_not_clear_saved_area(self, web):
+        call, app_dir = web
+        call("/api/area", {"bbox": [40.6, -74.0, 40.8, -73.9]})
+        call("/api/area", {"bbox": ["a", "b", "c", "d"]}, status=400)
+        call("/api/area", {"poly": [[1, 2]]}, status=400)
+        assert Api(app_dir)._prefs().area == {"bbox": [40.6, -74.0, 40.8, -73.9]}
+        assert call("/api/area", {})["cleared"] is True
+
+    def test_saved_junk_area_is_ignored(self, tmp_path):
+        seed_home(tmp_path)
+        app_dir = tmp_path / ".neighbors"
+        prefs = json.loads((app_dir / "preferences.json").read_text())
+        prefs["area"] = {"bbox": "nope"}
+        (app_dir / "preferences.json").write_text(json.dumps(prefs))
+        assert Api(app_dir).results()["results"]
+
+    def test_bad_verify_batch_and_key_types_are_400(self, web):
+        call, _ = web
+        call("/api/verify", {"batch": "x"}, status=400)
+        call("/api/verify", {"batch": 0}, status=400)
+        call("/api/rentcast-key", {"key": 123}, status=400)
+
+    def test_unknown_listing_is_404(self, web):
+        call, _ = web
+        assert "error" in call("/api/similar?id=nope", status=404)
+        call("/api/verify", {"id": "nope"}, status=404)
+        call("/api/enrich", {"id": "nope"}, status=404)
+
+    def test_fresh_install_dir_is_created(self, tmp_path):
+        status, data = self._raw(tmp_path / "new" / ".neighbors", "POST",
+                                 "/api/setup/dismiss", b"{}")
+        assert status == 200 and data == {"ok": True}
+
+    def test_corrupt_digest_marker_does_not_break_digest(self, web):
+        call, app_dir = web
+        (app_dir / "digest.json").write_text("[1, 2]")
+        assert "error" not in call("/api/digest")
+
+
+class TestBuildingVerifier:
+    def test_exhausted_budget_leaves_listings_unverified(self, tmp_path):
+        """Regression: running out of request budget must not read as 'no
+        building record' (which flags a listing as caution for 30 days)."""
+        from neighbors.http import BudgetExceeded
+        seed_home(tmp_path)
+        api = Api(tmp_path / ".neighbors")
+        real = Api._building_verifier
+        with pytest.raises(BudgetExceeded):   # budget 0: no network is touched
+            real(api, budget=0)("100 Bedford Ave, Brooklyn", None, None)
+
+        api._building_verifier = lambda budget=40: real(api, budget=0)
+        r = api.verify(batch=5)
+        assert r["checked"] == 0 and r["remaining"] == r["total"] > 0
+        assert api._verification_summary(api._prefs(), api._store())["caution"] == 0
+        lid = api._store().active(window_days=7)[0].id
+        assert api.verify(listing_id=lid).status == 429
+        assert "verify" not in next(r for r in api._store().records().values()
+                                    if r["listing"]["id"] == lid)
+
+    def test_registry_ids_are_digits_only(self):
+        from neighbors.webapi import _registry_id
+        assert _registry_id("1000010001") == "1000010001"
+        assert _registry_id(3001234) == "3001234"
+        for junk in (None, "", "1' OR '1'='1", "12.5", "abc"):
+            assert _registry_id(junk) is None
+
+
+class TestConcurrency:
+    def test_parallel_likes_and_results_lose_no_feedback(self, web):
+        """Feedback is saved whole; concurrent writers must not clobber
+        each other's likes."""
+        from concurrent.futures import ThreadPoolExecutor
+        call, app_dir = web
+        ids = [x["id"] for x in call("/api/results")["results"]][:6]
+        with ThreadPoolExecutor(8) as pool:
+            jobs = [pool.submit(call, "/api/feedback", {"id": i, "verdict": "hide"})
+                    for i in ids]
+            jobs += [pool.submit(call, "/api/results") for _ in range(4)]
+            for j in jobs:
+                j.result()
+        assert set(Feedback(app_dir / "store.db").hidden) == set(ids)
