@@ -24,6 +24,7 @@ verification are stubbed, and the browser tests block every non-local request.
 | CLI-06 | `neighbors --prefs` updates saved preferences and exits without fetching or ranking. | `tests/test_spec_cli.py` |
 | CLI-07 | `neighbors web --port N --no-browser` starts the web app on `127.0.0.1:N` and serves the page. | `tests/test_spec_cli.py` |
 | CLI-08 | Removed tuning flags (`--budget`, `--interval`, `--max-pages`, `--host`) are rejected with a usage error. | `tests/test_spec_cli.py` |
+| CLI-09 | `--rentcast-key KEY` saves the key to the OS credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service) — never a plain file; `--rentcast-key ""` removes it. Without a credential store it exits 1 and points to `RENTCAST_API_KEY`. | `tests/test_spec_cli.py` |
 
 ## Web app
 
@@ -74,6 +75,7 @@ verification are stubbed, and the browser tests block every non-local request.
 | WEB-33 | Saved boroughs show as checked, so re-saving never silently drops them. | `tests/e2e/test_web_ui.py` |
 | WEB-34 | Pressing Enter in a preferences field saves the dialog. | `tests/e2e/test_web_ui.py` |
 | WEB-35 | Dialogs close on a backdrop click or Close, but not on clicks inside the dialog. | `tests/e2e/test_web_ui.py` |
+| WEB-36 | A RentCast key entered in the first-run banner (or Preferences → Advanced) is saved to the OS credential store, never echoed back; the banner then disappears and Preferences shows it as saved. | `tests/e2e/test_web_ui.py` |
 
 ### Updating data
 

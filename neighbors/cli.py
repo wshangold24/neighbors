@@ -140,8 +140,8 @@ def _make_provider(name: str, session: SafeSession, rentcast_key: str | None):
     if name == "rentcast":
         provider = cls(session, api_key=rentcast_key)
         if not provider.api_key:
-            return None, ("no API key — set RENTCAST_API_KEY, pass "
-                          "--rentcast-key once, or see README")
+            return None, ("no API key — save one with `neighbors --rentcast-key KEY` "
+                          "or set RENTCAST_API_KEY")
         return provider, None
     return cls(session), None
 
@@ -329,7 +329,8 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--sources", metavar="LIST",
                         help=f"comma-separated providers for this run ({', '.join(PROVIDERS)})")
     search.add_argument("--rentcast-key", metavar="KEY",
-                        help="RentCast API key (saved to ~/.neighbors/rentcast_key)")
+                        help="save a RentCast API key to your system keychain "
+                             '(use "" to remove it)')
 
     web = ap.add_argument_group("web options")
     web.add_argument("--port", type=_bounded(int, 0, 65535), default=8787,
@@ -382,9 +383,29 @@ def main(argv: list[str] | None = None) -> int:
     return exit_code
 
 
+def save_rentcast_key(key: str) -> bool:
+    """Store (or, if blank, remove) the RentCast key in the OS credential store."""
+    from .keystore import KeystoreUnavailable, store_name
+    from .providers.rentcast import save_api_key
+    try:
+        save_api_key(key)
+    except KeystoreUnavailable as e:
+        print(f"  ! Couldn't save the RentCast key: {e}")
+        return False
+    where = store_name()
+    print(f"  RentCast key saved to your {where}." if key.strip()
+          else f"  RentCast key removed from your {where}.")
+    return True
+
+
 def _run(args, dbg: DebugSession | None) -> int:
     """Dispatch to the requested command. Informational commands need no
     preferences; everything else resolves prefs first."""
+    if args.rentcast_key is not None:
+        if not save_rentcast_key(args.rentcast_key):
+            return 1
+        if not args.rentcast_key.strip():
+            return 0          # `--rentcast-key ""` only removes the key
     informational = {"cache-status": cmd_cache_status, "quota": cmd_quota,
                      "weights": cmd_weights}
     if args.command in informational:
@@ -433,10 +454,6 @@ def _load_store_listings(args, prefs, dbg) -> tuple[Store, list[Listing]] | None
             return None
         print(f"  Store: {len(store)} known listings (no network).")
     else:
-        if args.rentcast_key:
-            from .providers.rentcast import save_api_key
-            save_api_key(args.rentcast_key)
-            print("  RentCast key saved to ~/.neighbors/rentcast_key")
         # if nothing in the store is still "active", a covering-fetch record
         # would otherwise keep us from refreshing — force past it.
         no_active = not store.active(window_days=prefs.active_window_days)

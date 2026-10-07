@@ -140,3 +140,22 @@ class TestCliRegressions:
         r = run_cli(["engine", "--cached"], tmp_path, stdin="hide 1\nq\n")
         assert r.returncode == 0, r.stderr
         assert "  hidden: " in r.stdout and "hided" not in r.stdout
+
+
+class TestCliKeySpec:
+    def test_key_saved_to_credential_store(self, fake_keyring, capsys):
+        """CLI-09: --rentcast-key saves to the OS credential store; "" removes it."""
+        from neighbors.cli import main
+        assert main(["--rentcast-key", " abc ", "weights"]) == 0
+        assert fake_keyring.entries == {("neighbors", "rentcast-api-key"): "abc"}
+        assert "saved to your" in capsys.readouterr().out
+        assert main(["--rentcast-key", ""]) == 0
+        assert fake_keyring.entries == {}
+        assert "removed" in capsys.readouterr().out
+
+    def test_no_credential_store_points_to_env_var(self, tmp_path):
+        """CLI-09: without a credential store, saving fails clearly (exit 1)."""
+        r = run_cli(["--rentcast-key", "abc"], tmp_path)   # subprocess: fail backend
+        assert r.returncode == 1
+        assert "RENTCAST_API_KEY" in r.stdout
+        assert "Traceback" not in r.stderr

@@ -15,6 +15,7 @@ from .conftest import seed_home
 
 from neighbors.feedback import Feedback
 from neighbors.models import Preferences
+from neighbors.providers.rentcast import resolve_api_key
 from neighbors.quota import QuotaLedger
 from neighbors.views import features_to_amenities
 from neighbors.web import Api, make_server
@@ -128,29 +129,38 @@ class TestVerifyEndpoint:
         call, app_dir = web
         assert call("/api/state")["rentcast_key_set"] is False
         assert call("/api/rentcast-key", {"key": "  test-key-123 "})["set"] is True
-        assert (app_dir / "rentcast_key").read_text().strip() == "test-key-123"
+        assert resolve_api_key() == "test-key-123"
         assert call("/api/state")["rentcast_key_set"] is True
         # blank clears it
         assert call("/api/rentcast-key", {"key": ""})["set"] is False
         assert call("/api/state")["rentcast_key_set"] is False
 
-    def test_rentcast_key_written_owner_only(self, web):
-        import stat
+    def test_rentcast_key_kept_off_disk_and_out_of_responses(self, web, fake_keyring):
         call, app_dir = web
-        call("/api/rentcast-key", {"key": "secret"})
-        mode = stat.S_IMODE((app_dir / "rentcast_key").stat().st_mode)
-        assert mode == 0o600                        # readable only by this user
+        r = call("/api/rentcast-key", {"key": "secret-xyz"})
+        assert "secret-xyz" not in json.dumps(r)
+        assert "secret-xyz" not in json.dumps(call("/api/state"))
+        assert fake_keyring.entries[("neighbors", "rentcast-api-key")] == "secret-xyz"
+        assert not any("secret-xyz" in p.read_text(errors="ignore")
+                       for p in app_dir.rglob("*") if p.is_file() and p.suffix != ".db")
+
+    def test_rentcast_key_without_credential_store_reports_error(self, web):
+        import keyring
+        from keyring.backends import fail
+        call, _ = web
+        keyring.set_keyring(fail.Keyring())
+        r = call("/api/rentcast-key", {"key": "k"})
+        assert "RENTCAST_API_KEY" in r["error"]
 
     def test_rentcast_key_detected_from_env(self, web, monkeypatch):
         call, app_dir = web
-        assert (app_dir / "rentcast_key").exists() is False
         monkeypatch.setenv("RENTCAST_API_KEY", "env-key-xyz")
         # already available via env → don't ask for it
         assert call("/api/state")["rentcast_key_set"] is True
 
-    def test_empty_key_file_not_counted(self, web):
-        call, app_dir = web
-        (app_dir / "rentcast_key").write_text("   \n")   # blank/whitespace only
+    def test_blank_stored_key_not_counted(self, web, fake_keyring):
+        call, _ = web
+        fake_keyring.set_password("neighbors", "rentcast-api-key", "   ")
         assert call("/api/state")["rentcast_key_set"] is False
 
     def test_setup_dismiss_persists(self, web):

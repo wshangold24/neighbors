@@ -464,3 +464,20 @@ class TestRobustness:
             const s = getComputedStyle(el);
             return [s.color, s.backgroundColor]; }""")
         assert colors[0] != colors[1]
+
+
+class TestRentCastKey:
+    def test_key_saved_from_setup_banner(self, live_app, page, fake_keyring):
+        """WEB-36: the first-run banner saves a RentCast key to the OS credential
+        store, then disappears; Preferences shows the key as saved."""
+        open_app(page, live_app)
+        banner = page.locator("#setup-banner")
+        expect(banner).to_be_visible()
+        page.locator("#setup-rc-key").fill("my-test-key")
+        page.locator("#setup-rc-save").click()
+        expect(page.locator("#toast")).to_contain_text("RentCast key saved to your")
+        expect(banner).to_be_hidden()
+        assert fake_keyring.entries[("neighbors", "rentcast-api-key")] == "my-test-key"
+        page.locator("#btn-prefs").click()
+        page.locator("#pref-adv-toggle").click()
+        expect(page.locator("#rc-key-status")).to_contain_text("✓ saved in your")

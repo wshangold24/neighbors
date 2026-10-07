@@ -22,27 +22,60 @@ how close they are.
 - **Few dependencies.** Python standard library plus `requests`. The web UI is a single
   HTML file served by `http.server`.
 
-## Quickstart
+## Setup
 
-Requires Python 3.9+.
+**1. Install** (requires Python 3.9+):
 
 ```bash
 git clone https://github.com/wshangold24/neighbors.git
 cd neighbors
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e .
 ```
 
-There are two ways to use it:
+**2. Run it.** There are two ways to use Neighbors:
 
 ```bash
 neighbors        # terminal: asks your preferences once, then prints ranked rentals
 neighbors web    # full web app at http://127.0.0.1:8787 (opens your browser)
 ```
 
-No API key is needed to start. NYC Housing Connect (affordable lotteries) works out of
-the box. Add a free [RentCast](https://www.rentcast.io/api) key in the web app's
-Preferences, or set `RENTCAST_API_KEY`, to include market-rate listings.
+That's all you need. Affordable-housing listings from NYC Housing Connect work with
+no key.
+
+**3. Optional: add a RentCast key** to include market-rate listings. Get a free key at
+[rentcast.io/api](https://www.rentcast.io/api), then either paste it into the web app
+(the first-run banner, or **Preferences → Advanced**) or save it from the terminal:
+
+```bash
+neighbors --rentcast-key YOUR_KEY
+```
+
+The key is stored in your operating system's credential store, never in a plain file
+and never in this repo:
+
+| OS | Where the key lives | How to see or delete it |
+|---|---|---|
+| macOS | Keychain | Keychain Access app → search "neighbors" |
+| Windows | Credential Manager | Control Panel → Credential Manager → Windows Credentials |
+| Linux | Secret Service (GNOME Keyring / KWallet) | Seahorse ("Passwords and Keys") or KWalletManager |
+
+To remove it, run `neighbors --rentcast-key ""` or clear the field in Preferences. On
+a machine without a credential store (a headless server or CI), set the environment
+variable instead: `export RENTCAST_API_KEY=YOUR_KEY`. When both are present, the
+environment variable wins.
+
+**4. Optional: add an NYC Open Data app token.** A free token from
+[data.cityofnewyork.us](https://data.cityofnewyork.us) (Developer Settings → App Tokens)
+raises the open-data rate limit, which makes building verification more reliable. Store
+it the same way:
+
+```bash
+python -m keyring set neighbors nyc-app-token    # prompts for the token
+```
+
+Or set `NYC_APP_TOKEN` in your environment.
 
 ## Using the terminal CLI
 
@@ -80,8 +113,7 @@ interchangeably. For a full tour, see [docs/WEB_GUIDE.md](docs/WEB_GUIDE.md).
 | [GeoSearch](https://geosearch.planninglabs.nyc), [PLUTO](https://data.cityofnewyork.us/d/64uk-42ks), [HPD](https://data.cityofnewyork.us/d/tesw-yqqr) | Building verification (not listings) | Open data, no key |
 
 Both listing sources are terms-of-service-clean: a licensed API and public open data,
-with no scraping. An optional free [NYC Open Data app token](https://data.cityofnewyork.us)
-(`NYC_APP_TOKEN`) raises the open-data rate limit.
+with no scraping.
 
 ## How the ranking works
 
@@ -110,7 +142,16 @@ pytest --ignore=tests/e2e     # skip the browser tests
 
 The suite covers the KNN math, the gate, and learning; the HTTP safety layer against a
 live local server; provider parsers; the CLI end to end; the JSON API; and the web UI in
-headless Chromium. Tests never touch the real network.
+headless Chromium. Tests never touch the real network, your `~/.neighbors` data, or your
+real keychain: an in-memory credential store stands in for it.
+
+To watch the browser tests click through the UI:
+
+```bash
+pytest tests/e2e --headed --slowmo 400                 # all UI tests, visibly
+pytest tests/e2e -k similar --headed --slowmo 800      # just the ones matching "similar"
+PWDEBUG=1 pytest tests/e2e -k test_details_dialog      # step through in the Playwright Inspector
+```
 
 ## Project layout
 
@@ -134,6 +175,7 @@ neighbors/
   verify.py            building verification (GeoSearch → PLUTO → HPD)
   digest.py            "since your last visit" summary
   debug.py             --debug diagnostic reports (secrets redacted)
+  keystore.py          API keys in the OS credential store (Keychain, etc.)
   providers/           rentcast, housingconnect, socrata client, demo (test-only)
 scripts/
   build_neighborhoods.py   optional: fetch precise NTA boundary polygons
@@ -141,8 +183,9 @@ tests/                     unit, integration, CLI, API, and browser (e2e/) tests
 docs/                      SPEC, METHOD, SCORING, WEB_GUIDE
 ```
 
-Your local data (preferences, the SQLite store, the HTTP cache, and any saved keys)
-lives in `~/.neighbors/`, never in the repo.
+Your local data (preferences, the SQLite store, and the HTTP cache) lives in
+`~/.neighbors/`, never in the repo. API keys live in your OS credential store (see
+[Setup](#setup)).
 
 ## License
 

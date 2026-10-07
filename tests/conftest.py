@@ -16,27 +16,62 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# CLI subprocesses inherit this: a credential store that is always unavailable,
+# so no test process can ever read or write the developer's real keychain.
+os.environ["PYTHON_KEYRING_BACKEND"] = "keyring.backends.fail.Keyring"
+
+import keyring  # noqa: E402
+from keyring.backend import KeyringBackend  # noqa: E402
+from keyring.errors import PasswordDeleteError  # noqa: E402
+
 from neighbors.http import SafeSession  # noqa: E402
 from neighbors.models import Preferences  # noqa: E402
 from neighbors.providers.demo import DemoProvider  # noqa: E402
 from neighbors.store import Store  # noqa: E402
 
 
+class MemoryKeyring(KeyringBackend):
+    """In-process stand-in for the OS credential store."""
+
+    priority = 1
+
+    def __init__(self):
+        super().__init__()
+        self.entries: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service, username):
+        return self.entries.get((service, username))
+
+    def set_password(self, service, username, password):
+        self.entries[(service, username)] = password
+
+    def delete_password(self, service, username):
+        if self.entries.pop((service, username), None) is None:
+            raise PasswordDeleteError(username)
+
+
+@pytest.fixture(autouse=True)
+def fake_keyring():
+    """Every test gets a fresh, empty in-memory credential store."""
+    previous = keyring.get_keyring()
+    store = MemoryKeyring()
+    keyring.set_keyring(store)
+    yield store
+    keyring.set_keyring(previous)
+
+
 @pytest.fixture(autouse=True)
 def isolate_user_data(tmp_path_factory, monkeypatch):
-    """Never let a test read or write the developer's real ~/.neighbors: saved
-    API keys there would turn a test into a live (quota-spending) request.
+    """Never let a test read or write the developer's real ~/.neighbors or API
+    keys (which would turn a test into a live, quota-spending request).
     Module-level paths are resolved at import time, so patch them too."""
     from neighbors import cli, debug
-    from neighbors.providers import rentcast, socrata
 
     home = tmp_path_factory.mktemp("home")
     app_dir = home / ".neighbors"
     monkeypatch.setenv("HOME", str(home))
     for var in ("RENTCAST_API_KEY", "NYC_APP_TOKEN"):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setattr(rentcast, "KEY_FILE", app_dir / "rentcast_key")
-    monkeypatch.setattr(socrata, "TOKEN_FILE", app_dir / "nyc_app_token")
     monkeypatch.setattr(debug, "DEBUG_DIR", app_dir / "debug")
     monkeypatch.setattr(cli, "APP_DIR", app_dir)
     monkeypatch.setattr(cli, "PREFS_FILE", app_dir / "preferences.json")

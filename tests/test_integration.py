@@ -206,10 +206,7 @@ class TestRentCastProvider:
         _, params = sess.calls[0]
         assert params.get("city") == "New York" and params.get("state") == "NY"
 
-    def test_no_api_key_makes_zero_requests(self, monkeypatch, tmp_path):
-        monkeypatch.delenv("RENTCAST_API_KEY", raising=False)
-        monkeypatch.setattr("neighbors.providers.rentcast.KEY_FILE",
-                            tmp_path / "nokey")
+    def test_no_api_key_makes_zero_requests(self):
         p, sess = self.make([RENTCAST_FIXTURE], key=None)
         assert p.fetch(Preferences()) == []
         assert sess.calls == [], "must not spend quota without a key"
@@ -218,15 +215,15 @@ class TestRentCastProvider:
         p, _ = self.make([json.dumps({"status": 401, "message": "Invalid API key"})])
         assert p.fetch(Preferences()) == []
 
-    def test_key_resolution_order(self, monkeypatch, tmp_path):
-        keyfile = tmp_path / "rentcast_key"
-        keyfile.write_text("file-key\n")
-        monkeypatch.setattr("neighbors.providers.rentcast.KEY_FILE", keyfile)
+    def test_key_resolution_order(self, monkeypatch):
+        """explicit → $RENTCAST_API_KEY → OS credential store."""
+        from neighbors.providers.rentcast import save_api_key
+        save_api_key("keychain-key")
         monkeypatch.setenv("RENTCAST_API_KEY", "env-key")
         assert resolve_api_key("explicit-key") == "explicit-key"
         assert resolve_api_key(None) == "env-key"
         monkeypatch.delenv("RENTCAST_API_KEY")
-        assert resolve_api_key(None) == "file-key"
+        assert resolve_api_key(None) == "keychain-key"
 
 
 # --------------------------------------------------------------------------
@@ -477,24 +474,36 @@ class TestSharedDatabaseConcurrency:
 
 
 class TestProviderEdgeCases:
-    def test_saved_key_is_owner_only(self, monkeypatch, tmp_path):
-        import os
-        import stat
+    def test_saved_key_goes_to_credential_store_not_disk(self, fake_keyring, tmp_path):
         from neighbors.providers import rentcast
-        keyfile = tmp_path / "rentcast_key"
-        keyfile.write_text("old\n")
-        keyfile.chmod(0o644)
-        monkeypatch.setattr(rentcast, "KEY_FILE", keyfile)
-        old_umask = os.umask(0o022)
-        try:
-            rentcast.save_api_key(" new-key ")
-        finally:
-            os.umask(old_umask)
-        assert stat.S_IMODE(keyfile.stat().st_mode) == 0o600
-        assert keyfile.read_text() == "new-key\n"
+        rentcast.save_api_key(" new-key ")
+        assert fake_keyring.entries == {("neighbors", "rentcast-api-key"): "new-key"}
+        assert not any(tmp_path.rglob("*"))           # nothing written to disk
+        rentcast.save_api_key("")                      # blank removes it
+        assert fake_keyring.entries == {}
+        rentcast.save_api_key("")                      # removing twice is fine
+        assert resolve_api_key() is None
 
-    def test_blank_explicit_key_falls_through(self, monkeypatch, tmp_path):
-        monkeypatch.setattr("neighbors.providers.rentcast.KEY_FILE", tmp_path / "none")
+    def test_no_credential_store_is_a_clear_error(self):
+        import keyring
+        from keyring.backends import fail
+        from neighbors import keystore
+        from neighbors.providers import rentcast
+        keyring.set_keyring(fail.Keyring())
+        assert resolve_api_key() is None               # reading degrades to "not set"
+        with pytest.raises(keystore.KeystoreUnavailable, match="RENTCAST_API_KEY"):
+            rentcast.save_api_key("k")
+
+    def test_nyc_token_resolves_from_credential_store(self, monkeypatch):
+        from neighbors import keystore
+        from neighbors.providers.socrata import resolve_app_token
+        assert resolve_app_token() is None
+        keystore.save(keystore.NYC_APP_TOKEN, "tok")
+        assert resolve_app_token() == "tok"
+        monkeypatch.setenv("NYC_APP_TOKEN", "env-tok")
+        assert resolve_app_token() == "env-tok"
+
+    def test_blank_explicit_key_falls_through(self, monkeypatch):
         monkeypatch.setenv("RENTCAST_API_KEY", "env-key")
         assert resolve_api_key("  ") == "env-key"
 

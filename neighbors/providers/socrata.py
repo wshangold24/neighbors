@@ -6,10 +6,9 @@ Two consumers:
 
 An app token lifts the shared anonymous rate pool (register a free one at
 data.cityofnewyork.us; up to ~1,000 req/hour). It's optional — anonymous
-access works, just with a smaller shared budget. Resolution order:
-  1. explicit argument
-  2. NYC_APP_TOKEN environment variable
-  3. ~/.neighbors/nyc_app_token file
+access works, just with a smaller shared budget. Resolution (see
+keystore.py): explicit argument, then $NYC_APP_TOKEN, then the OS credential
+store (`python -m keyring set neighbors nyc-app-token`).
 
 All requests go through SafeSession (rate-limited, cached, budgeted).
 """
@@ -18,15 +17,13 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import Iterable
 
-from .base import resolve_secret
+from .. import keystore
 
 log = logging.getLogger("neighbors.socrata")
 
 DOMAIN = "https://data.cityofnewyork.us"
-TOKEN_FILE = Path.home() / ".neighbors" / "nyc_app_token"
 
 # Dataset ids used across the app (documented here so the magic strings live
 # in exactly one place).
@@ -37,7 +34,7 @@ HOUSING_CONNECT_BUILDING = "nibs-na6y"   # Advertised lotteries, by building
 
 
 def resolve_app_token(explicit: str | None = None) -> str | None:
-    return resolve_secret(explicit, "NYC_APP_TOKEN", TOKEN_FILE)
+    return keystore.resolve(keystore.NYC_APP_TOKEN, explicit)
 
 
 def soda_get(session, dataset: str, params: dict,

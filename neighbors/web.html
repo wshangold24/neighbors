@@ -459,8 +459,9 @@
       <button type="button" id="setup-rc-save" class="primary">Save key</button>
       <button type="button" id="setup-skip" class="ghost">Not now</button>
     </div>
-    <div class="sb-note">Stored only in <code>~/.neighbors</code> on this computer (owner-only, 0600),
-      never uploaded and never shown again. You can change it anytime in Preferences → Advanced.</div>
+    <div class="sb-note">Saved in your <span class="key-store-name">system keychain</span> on this
+      computer — never in a plain file, never uploaded, and never shown again. You can change it
+      anytime in Preferences → Advanced.</div>
   </div>
   <div id="whatsnew" hidden></div>
   <div class="toolbar">
@@ -1128,6 +1129,8 @@ $("#empty").addEventListener("click", (e) => {
 function renderSetup() {
   const m = state.meta;
   $("#setup-banner").hidden = !(m && !m.rentcast_key_set && !m.setup_dismissed);
+  if (m?.key_store)
+    document.querySelectorAll(".key-store-name").forEach(el => el.textContent = m.key_store);
 }
 $("#setup-rc-save").addEventListener("click", async () => {
   const input = $("#setup-rc-key");
@@ -1137,7 +1140,7 @@ $("#setup-rc-save").addEventListener("click", async () => {
   input.value = "";
   await loadState();
   renderSetup();
-  toast("RentCast key saved — fetch to pull market-rate listings");
+  toast(`RentCast key saved to your ${r.store} — fetch to pull market-rate listings`);
 });
 $("#setup-skip").addEventListener("click", () => {
   $("#setup-banner").hidden = true;
@@ -1812,7 +1815,8 @@ $("#fetch-limit").addEventListener("input", (e) =>
 // in-app RentCast key entry (no terminal/env var needed)
 function setRcKeyStatus(isSet) {
   const el = $("#rc-key-status");
-  el.textContent = isSet ? "✓ key saved" : "not set";
+  const where = state.meta?.key_store || "system keychain";
+  el.textContent = isSet ? `✓ saved in your ${where}` : "not set";
   el.className = isSet ? "rc-ok" : "rc-off";
 }
 $("#rc-key-save").addEventListener("click", async () => {
@@ -1821,7 +1825,8 @@ $("#rc-key-save").addEventListener("click", async () => {
   $("#rc-key").value = "";
   setRcKeyStatus(r.set);
   await loadState();     // refresh key status + quota
-  toast(r.set ? "RentCast key saved — fetch to pull market-rate listings" : "RentCast key removed");
+  toast(r.set ? `RentCast key saved to your ${r.store} — fetch to pull market-rate listings`
+              : "RentCast key removed");
 });
 
 // ---------- important places editor ----------

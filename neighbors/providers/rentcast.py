@@ -6,10 +6,8 @@ aggressively frugal: ONE request per run by default (limit=500 covers far
 more than a search needs), and SafeSession's 12h disk cache makes repeat
 runs free.
 
-API key resolution (in order):
-  1. constructor arg (from --rentcast-key)
-  2. RENTCAST_API_KEY environment variable
-  3. ~/.neighbors/rentcast_key file
+API key resolution (see keystore.py): the constructor arg (from
+--rentcast-key), then $RENTCAST_API_KEY, then the OS credential store.
 """
 
 from __future__ import annotations
@@ -17,33 +15,27 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import urllib.parse
-from pathlib import Path
 
 from ..models import Listing, Preferences, nearest_neighborhood
-from .base import Provider, resolve_secret
+from .. import keystore
+from .base import Provider
 
 log = logging.getLogger("neighbors.rentcast")
 
-KEY_FILE = Path.home() / ".neighbors" / "rentcast_key"
 ENDPOINT = "https://api.rentcast.io/v1/listings/rental/long-term"
 MAX_DAYS_OLD = 60          # ignore stale listings
 RADIUS_MILES = 2.5         # around chosen-neighborhood centroid
 
 
 def resolve_api_key(explicit: str | None = None) -> str | None:
-    return resolve_secret(explicit, "RENTCAST_API_KEY", KEY_FILE)
+    return keystore.resolve(keystore.RENTCAST, explicit)
 
 
 def save_api_key(key: str) -> None:
-    """Write the key owner-only (0600). The file is created with that mode, so
-    it is never briefly readable by others, and an existing file is tightened."""
-    KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        KEY_FILE.chmod(0o600)      # before writing: tighten a pre-existing file
-        f.write(key.strip() + "\n")
+    """Save the key to the OS credential store (blank removes it). Raises
+    keystore.KeystoreUnavailable when the machine has no credential store."""
+    keystore.save(keystore.RENTCAST, key)
 
 
 def _stable_hash(text: str) -> str:
@@ -60,10 +52,8 @@ class RentCastProvider(Provider):
 
     def fetch(self, prefs: Preferences, max_pages: int = 1) -> list[Listing]:
         if not self.api_key:
-            log.warning(
-                "rentcast: no API key. Set RENTCAST_API_KEY, use --rentcast-key, "
-                "or write it to %s", KEY_FILE,
-            )
+            log.warning("rentcast: no API key. Add one with "
+                        "`neighbors --rentcast-key KEY` or set RENTCAST_API_KEY.")
             return []
 
         hi = round(prefs.max_price * (1 + prefs.price_stretch))

@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import logging
 import math
-import os
 import threading
 import time
 from dataclasses import replace
@@ -27,7 +26,9 @@ from .learn import learn_weights, load_weights, save_weights
 from .models import (AMENITIES, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_REGION, REGIONS,
                      Listing, Preferences)
 from .providers import PROVIDERS
-from .providers.rentcast import resolve_api_key
+from . import keystore
+from .keystore import KeystoreUnavailable
+from .providers.rentcast import resolve_api_key, save_api_key
 from .providers.socrata import HPD_REGISTRATIONS, PLUTO, resolve_app_token, soda_get
 from .quota import QuotaLedger
 from .store import Store
@@ -240,15 +241,11 @@ class Api:
     def _weights(self) -> dict | None:
         return load_weights(self.dir / "weights.json")
 
-    def _rentcast_key_present(self) -> bool:
-        """A non-empty saved key file or RENTCAST_API_KEY — the provider's own
-        resolve order, so we never ask for a key that's already set."""
-        try:
-            if (self.dir / "rentcast_key").read_text().strip():
-                return True
-        except OSError:
-            pass
-        return bool(os.environ.get("RENTCAST_API_KEY", "").strip())
+    @staticmethod
+    def _rentcast_key_present() -> bool:
+        """Same resolve order as the provider (env var, then credential store),
+        so we never ask for a key that's already set."""
+        return resolve_api_key() is not None
 
     # ---------- ranking helpers ----------
 
@@ -351,6 +348,7 @@ class Api:
             "quota": QuotaLedger(self.dir / "store.db").summary(),
             "weights_learned": learned is not None,
             "rentcast_key_set": self._rentcast_key_present(),
+            "key_store": keystore.store_name(),
             "setup_dismissed": (self.dir / "setup.json").exists(),
             "feedback": {"liked": len(feedback.liked), "hidden": len(feedback.hidden)},
             "verification": self._verification_summary(prefs, store),
@@ -605,20 +603,15 @@ class Api:
         return {"ok": True}
 
     def save_rentcast_key(self, key: str) -> dict:
-        """Save (or clear, if blank) the RentCast API key — the in-app way to
-        enable market-rate listings. Created owner-only (0600) from the start,
-        so it's never briefly world-readable, and never sent back to the UI."""
-        key = (key or "").strip()
-        f = self.dir / "rentcast_key"
-        if not key:
-            f.unlink(missing_ok=True)
-            return {"ok": True, "set": False}
-        f.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w") as fh:
-            fh.write(key + "\n")
-        f.chmod(0o600)   # tighten a file that pre-existed with looser bits
-        return {"ok": True, "set": True}
+        """Save (or clear, if blank) the RentCast API key in the OS credential
+        store — the in-app way to enable market-rate listings. The key is never
+        written to disk in plain text and never sent back to the UI."""
+        try:
+            save_api_key(key)
+        except KeystoreUnavailable as e:
+            return {"error": str(e)}
+        return {"ok": True, "set": self._rentcast_key_present(),
+                "store": keystore.store_name()}
 
     # ---------- network-backed endpoints ----------
 
