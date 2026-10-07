@@ -101,6 +101,7 @@ single-page app:
 - edit preferences, including neighborhoods to want or avoid and important places with commutes
 - fetch, refresh, and verify listings from the **Update** menu
 - read **About** (`/about`) for why the app exists and what it does
+- switch between light and dark themes with the sun/moon button in the header
 
 The CLI and the web app share the same state in `~/.neighbors/`, so you can use both
 interchangeably. For a full tour, see [docs/WEB_GUIDE.md](docs/WEB_GUIDE.md).

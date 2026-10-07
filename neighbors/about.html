@@ -4,15 +4,45 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>About · Neighbors</title>
+<script>
+// Theme before first paint (no flash): the saved choice, else the OS setting.
+(() => {
+  let t = null;
+  try { t = localStorage.getItem("neighbors-theme"); } catch (e) {}
+  if (t !== "light" && t !== "dark")
+    t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  document.documentElement.dataset.theme = t;
+})();
+</script>
 <meta name="description" content="Why Neighbors exists: NYC rental search that ranks by how close a listing is to what you want, instead of hiding everything that misses a filter.">
 <style>
-  /* Same warm editorial palette as the app (web.html) — one product, one look. */
+  /* Same tokens as the app (web.html), plus --text-2 for body copy. */
   :root {
-    --bg: #f7f5f0; --card: #ffffff; --line: #e9e4da; --line-soft: #f1ede5;
-    --ink: #26221b; --dim: #837c6e; --accent: #b4552d; --accent-soft: #f6e8e1;
-    --good: #3e7a5e; --good-soft: #e7f1ec; --warn: #a8742c; --warn-soft: #f7eedf;
-    --shadow: 0 1px 2px rgba(38,34,27,.05), 0 8px 24px rgba(38,34,27,.06);
+    color-scheme: light;
+    --bg: #f3f0e8; --card: #fcfbf7; --line: #e3ddd0; --line-soft: #ede9df;
+    --ink: #20261f; --ink-hover: #343b32; --on-ink: #fcfbf7; --dim: #656a5e; --text-2: #474d43;
+    --accent: #4d6b52; --accent-soft: #e2eadf;      /* sage: brand, match %, links */
+    --clay: #9c522a; --clay-soft: #f5e4d6;          /* warm: areas, places */
+    --good: #3a7049; --good-soft: #e3efe5;
+    --warn: #8a5d14; --warn-soft: #f5ead3;
+    --like: #a8433a; --like-soft: #f5e1dc; --on-like: #ffffff;
+    --backdrop: rgba(32,38,31,.38);
+    --shadow: 0 1px 2px rgba(32,38,31,.05), 0 8px 24px rgba(32,38,31,.06);
+    --shadow-hover: 0 2px 4px rgba(32,38,31,.06), 0 14px 36px rgba(32,38,31,.10);
     --serif: ui-serif, "New York", Georgia, serif;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #141813; --card: #1c211b; --line: #2c332a; --line-soft: #232922;
+    --ink: #e6e4d8; --ink-hover: #f6f4ea; --on-ink: #141813; --dim: #9ba293; --text-2: #c4c6b8;
+    --accent: #9dbf9c; --accent-soft: #253125;
+    --clay: #e09a6a; --clay-soft: #3a2a1f;
+    --good: #8fc29b; --good-soft: #1f3024;
+    --warn: #dcae62; --warn-soft: #372c18;
+    --like: #e58b80; --like-soft: #3a2321; --on-like: #1c211b;
+    --backdrop: rgba(0,0,0,.55);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    --shadow-hover: 0 2px 4px rgba(0,0,0,.35), 0 14px 36px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -30,15 +60,22 @@
            position: sticky; top: 0; z-index: 10; }
   header .brand { font: 600 19px var(--serif); letter-spacing: -.01em; color: var(--ink);
                   text-decoration: none; }
-  header nav { margin-left: auto; display: flex; gap: 4px; }
+  header nav { margin-left: auto; align-items: center; display: flex; gap: 4px; }
   header nav a { color: var(--dim); text-decoration: none; font-size: 14px;
                  padding: 6px 12px; border-radius: 999px; }
   header nav a:hover { color: var(--ink); background: var(--line-soft); }
   header nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
 
+  .icon-btn { width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center;
+              border-radius: 50%; border: 1px solid var(--line); background: var(--card);
+              color: var(--ink); cursor: pointer; flex: 0 0 auto; }
+  .icon-btn:hover { border-color: var(--ink); }
+  .icon-btn svg.i { width: 16px; height: 16px; vertical-align: 0; }
+  .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  :root[data-theme="dark"] .icon-btn .moon, :root:not([data-theme="dark"]) .icon-btn .sun { display: none; }
   main { max-width: 1040px; margin: 0 auto; padding: 0 24px 72px; }
   section { padding: 56px 0 0; }
-  .eyebrow { color: var(--accent); font-size: 12.5px; font-weight: 600;
+  .eyebrow { color: var(--clay); font-size: 12.5px; font-weight: 600;
              letter-spacing: .1em; text-transform: uppercase; margin: 0 0 12px; }
   h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -.015em; margin: 0; }
   h2 { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.15; margin-bottom: 12px; }
@@ -49,14 +86,14 @@
   .hero { padding-top: 72px; max-width: 760px; }
   .hero h1 { font-size: clamp(36px, 6vw, 58px); line-height: 1.05; margin-bottom: 20px; }
   .hero h1 em { font-style: normal; color: var(--accent); }
-  .hero .lede { font-size: clamp(17px, 2.2vw, 20px); color: #4c463b; margin: 0 0 28px; }
+  .hero .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--text-2); margin: 0 0 28px; }
   .ctas { display: flex; flex-wrap: wrap; gap: 10px; }
   .btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px;
          padding: 11px 20px; font-size: 15px; font-weight: 500; text-decoration: none;
          border: 1px solid var(--line); background: var(--card); color: var(--ink); }
   .btn:hover { border-color: var(--ink); }
-  .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
-  .btn.primary:hover { background: #000; }
+  .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .btn.primary:hover { background: var(--ink-hover); }
 
   /* ---------- filter vs. Neighbors comparison ---------- */
   figure { margin: 0; }
@@ -71,7 +108,7 @@
   .compare-grid > div { padding: 13px 22px; border-bottom: 1px solid var(--line-soft);
                         display: flex; align-items: center; gap: 10px; min-width: 0; }
   .compare-grid .col-h { font-size: 12px; font-weight: 600; letter-spacing: .08em;
-                         text-transform: uppercase; color: var(--dim); background: #fcfbf8; }
+                         text-transform: uppercase; color: var(--dim); background: var(--bg); }
   .compare-grid .col-h.ours { color: var(--accent); }
   .apt { flex-direction: column; align-items: flex-start !important; gap: 0 !important; }
   .apt b { font-family: var(--serif); font-size: 17px; }
@@ -86,7 +123,7 @@
            border-radius: 999px; padding: 2px 10px; white-space: nowrap;
            overflow: hidden; text-overflow: ellipsis; }
   .trade.fit { color: var(--good); background: var(--good-soft); }
-  .compare-foot { padding: 14px 22px; font-size: 13.5px; color: var(--dim); background: #fcfbf8; }
+  .compare-foot { padding: 14px 22px; font-size: 13.5px; color: var(--dim); background: var(--bg); }
   .compare-foot b { color: var(--ink); }
 
   /* ---------- feature cards ---------- */
@@ -96,7 +133,7 @@
   .feature .ico { width: 42px; height: 42px; border-radius: 12px; display: grid;
                   place-items: center; background: var(--accent-soft); color: var(--accent);
                   margin-bottom: 14px; }
-  .feature p { margin: 0; color: #5b5448; font-size: 15px; }
+  .feature p { margin: 0; color: var(--text-2); font-size: 15px; }
 
   /* ---------- how it works ---------- */
   .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: step; }
@@ -104,9 +141,9 @@
           background: var(--card); border: 1px solid var(--line); }
   .step::before { counter-increment: step; content: counter(step);
                   display: grid; place-items: center; width: 30px; height: 30px;
-                  border-radius: 50%; background: var(--ink); color: #fff;
+                  border-radius: 50%; background: var(--ink); color: var(--on-ink);
                   font: 600 14px var(--serif); margin-bottom: 14px; }
-  .step p { margin: 0; color: #5b5448; font-size: 15px; }
+  .step p { margin: 0; color: var(--text-2); font-size: 15px; }
   .step .src { margin-top: 12px; font-size: 13px; color: var(--dim); }
 
   /* ---------- principles ---------- */
@@ -116,7 +153,7 @@
                padding: 18px 0; border-bottom: 1px solid var(--line); }
   .principle svg { color: var(--good); width: 22px; height: 22px; margin-top: 2px; }
   .principle h3 { font-size: 16.5px; margin-bottom: 2px; }
-  .principle p { margin: 0; color: #5b5448; font-size: 14.5px; }
+  .principle p { margin: 0; color: var(--text-2); font-size: 14.5px; }
 
   /* ---------- live stats + closing ---------- */
   .live { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
@@ -125,10 +162,8 @@
   .live .num { font: 600 30px/1.1 var(--serif); }
   .live .lbl { color: var(--dim); font-size: 13px; }
   .closing { margin-top: 56px; padding: 40px 32px; border-radius: 20px; text-align: center;
-             background: var(--ink); color: #f7f5f0; }
-  .closing h2 { color: #fff; }
-  .closing p { color: #cfc8ba; margin: 0 auto 22px; max-width: 520px; }
-  .closing .btn { background: #fff; color: var(--ink); border-color: #fff; }
+             background: var(--accent-soft); border: 1px solid var(--line); }
+  .closing p { color: var(--text-2); margin: 0 auto 22px; max-width: 520px; }
   footer { text-align: center; color: var(--dim); font-size: 13px; padding: 28px 24px 40px; }
 
   @media (max-width: 860px) {
@@ -167,6 +202,10 @@
     <a href="/">Listings</a>
     <a href="/about" aria-current="page">About</a>
   </nav>
+  <button type="button" id="theme-toggle" class="icon-btn" aria-label="Switch to dark mode">
+    <svg class="i moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+    <svg class="i sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
 </header>
 
 <main>
@@ -331,7 +370,7 @@
   <div class="closing">
     <h2>Ready to look?</h2>
     <p>Your ranked matches are waiting, near-misses included.</p>
-    <a class="btn" href="/">Browse your matches →</a>
+    <a class="btn primary" href="/">Browse your matches →</a>
   </div>
 </main>
 
@@ -339,6 +378,29 @@
 
 <script>
 "use strict";
+// ---------- theme toggle (light / dark; the choice is remembered) ----------
+(() => {
+  const btn = document.getElementById("theme-toggle");
+  const apply = (t) => {
+    document.documentElement.dataset.theme = t;
+    btn.setAttribute("aria-label", t === "dark" ? "Switch to light mode" : "Switch to dark mode");
+    btn.title = btn.getAttribute("aria-label");
+  };
+  apply(document.documentElement.dataset.theme);
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem("neighbors-theme", next); } catch (e) {}
+    document.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+  });
+  // follow the OS setting until the user picks one
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    let saved = null;
+    try { saved = localStorage.getItem("neighbors-theme"); } catch (err) {}
+    if (!saved) apply(e.matches ? "dark" : "light");
+  });
+})();
+
 // Personalize with live numbers when the app's API is reachable; the page
 // reads fine without them, so any failure just leaves this section hidden.
 (async () => {

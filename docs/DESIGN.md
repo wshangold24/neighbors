@@ -372,13 +372,42 @@ a CDN the first time the map opens.
 - *Server-rendered templates (Jinja).* Requires a dependency, and the UI is
   interaction-heavy anyway.
 
-### Warm, light "reading surface" design
+### Visual design: "sage & clay", light and dark
 
-**Decision:** a paper-like light palette, serif headings, one terracotta accent,
-and cards that put the decision-relevant facts (price, match %, commute, the main
-tradeoff) first. Details open in a dialog so the grid never reflows.
+**Decision:**
+- **Palette:** warm oat surfaces, faded sage green as the brand color (match
+  scores, links, active states), and clay as the warm secondary (map areas, saved
+  places).
+- **Status colors:** green for verified, ochre for caution, rose-clay for likes.
+- **Type and layout:** serif headings, and cards that put the decision-relevant
+  facts first (price, match %, commute, the main tradeoff). Details open in a
+  dialog so the grid never reflows.
+- **Dark mode:** a deep olive-charcoal theme. It follows the OS setting until the
+  user flips the header toggle, and the choice is remembered.
 
-**Why:** apartment hunting is reading and comparing, not monitoring a dashboard.
+**Why:**
+- Apartment hunting is reading and comparing, not monitoring a dashboard.
+- The palette deliberately avoids the stock looks of generated web UIs (indigo or
+  purple gradients, default "link blue", cream with a single orange accent). Green
+  also reads naturally as "neighborhood" and "good fit".
+
+**How it's built:**
+- Every color is a CSS custom property, and dark mode is one override block on
+  `:root[data-theme="dark"]`, shared by both pages.
+- A tiny script in `<head>` sets the theme before first paint, so there's no
+  flash.
+- Map tiles are inverted in dark mode, and drawn areas read the current theme
+  color.
+- A browser test computes the contrast of every text/surface token pair in both
+  themes and fails below WCAG AA (4.5:1). Palette tweaks can't silently break
+  readability.
+
+**Alternatives:**
+- *Light only.* Simpler, but many people browse listings at night.
+- *Only `prefers-color-scheme`, with no toggle.* It respects the OS but gives no
+  per-app choice.
+- *A CSS framework theme (Tailwind or Bootstrap).* Needs a build step, and it's
+  exactly the generic look being avoided.
 
 ---
 

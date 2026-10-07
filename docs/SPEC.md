@@ -94,6 +94,14 @@ verification are stubbed, and the browser tests block every non-local request.
 | WEB-51 | The about page makes no external requests and has no horizontal scroll at 375px. | `tests/e2e/test_web_ui.py` |
 | WEB-52 | When the app is running, the about page shows live counts (tracked, available, verified, liked) that match the app. | `tests/e2e/test_web_ui.py` |
 
+### Theme
+
+| ID | Requirement | Test |
+|---|---|---|
+| WEB-60 | A header toggle (on the app and the about page) switches between light and dark themes. The choice is remembered across reloads and shared between pages. | `tests/e2e/test_web_ui.py` |
+| WEB-61 | Until the user picks a theme, the app follows the operating system's light/dark setting. | `tests/e2e/test_web_ui.py` |
+| WEB-62 | In both themes, every text color meets WCAG AA contrast (≥ 4.5:1) on the surfaces it's used on. | `tests/e2e/test_web_ui.py` |
+
 ### API contract
 
 The JSON API behind the page (`/api/state`, `/api/results`, `/api/similar`,

@@ -520,3 +520,72 @@ class TestAboutPage:
         expect(page.locator("#yours")).to_be_visible()
         expect(page.locator("#n-liked")).to_have_text("1")
         expect(page.locator("#n-active")).to_have_text(f"{available:,}")
+
+
+# ---------- theme ----------
+
+def _contrast(fg: str, bg: str) -> float:
+    def lum(h):
+        h = h.strip().lstrip("#")
+        chans = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+        lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in chans]
+        return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    hi, lo = sorted((lum(fg), lum(bg)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+# text token → the surfaces it's drawn on
+TEXT_PAIRS = {
+    "--ink": ["--bg", "--card"], "--dim": ["--bg", "--card"], "--on-ink": ["--ink"],
+    "--accent": ["--bg", "--card", "--accent-soft"], "--clay": ["--card", "--clay-soft"],
+    "--good": ["--card", "--good-soft"], "--warn": ["--card", "--warn-soft"],
+    "--like": ["--card", "--like-soft"], "--on-like": ["--like"],
+}
+
+
+class TestTheme:
+    def test_toggle_switches_and_is_remembered(self, live_app, page):
+        """WEB-60"""
+        page.emulate_media(color_scheme="light")
+        open_app(page, live_app)
+        html, toggle = page.locator("html"), page.locator("#theme-toggle")
+        expect(html).to_have_attribute("data-theme", "light")
+        light_bg = page.evaluate("getComputedStyle(document.body).backgroundColor")
+        toggle.click()
+        expect(html).to_have_attribute("data-theme", "dark")
+        expect(toggle).to_have_attribute("aria-label", "Switch to light mode")
+        assert page.evaluate("getComputedStyle(document.body).backgroundColor") != light_bg
+        page.reload()
+        expect(html).to_have_attribute("data-theme", "dark")
+        page.goto(live_app.url + "about")                 # shared across pages
+        expect(html).to_have_attribute("data-theme", "dark")
+        page.locator("#theme-toggle").click()
+        page.goto(live_app.url)
+        expect(html).to_have_attribute("data-theme", "light")
+
+    def test_follows_os_setting_by_default(self, live_app, page):
+        """WEB-61"""
+        page.emulate_media(color_scheme="dark")
+        page.goto(live_app.url)
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+        page.goto(live_app.url + "about")
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+
+    @pytest.mark.parametrize("path", ["", "about"])
+    def test_text_contrast_meets_wcag_aa(self, live_app, page, path):
+        """WEB-62: every text/surface token pair is ≥ 4.5:1 in both themes."""
+        page.goto(live_app.url + path)
+        failures = []
+        for theme in ("light", "dark"):
+            tokens = page.evaluate("""theme => {
+                document.documentElement.dataset.theme = theme;
+                const cs = getComputedStyle(document.documentElement), out = {};
+                for (const name of %s) out[name] = cs.getPropertyValue(name).trim();
+                return out; }""" % json.dumps(sorted({t for k, v in TEXT_PAIRS.items()
+                                                     for t in [k, *v]})), theme)
+            for fg, surfaces in TEXT_PAIRS.items():
+                for bg in surfaces:
+                    ratio = _contrast(tokens[fg], tokens[bg])
+                    if ratio < 4.5:
+                        failures.append(f"{theme}: {fg} on {bg} = {ratio:.2f}")
+        assert not failures, failures

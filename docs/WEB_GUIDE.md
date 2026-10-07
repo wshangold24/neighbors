@@ -13,11 +13,13 @@ Stop with Ctrl-C. Everything the web app shows and saves lives in the same `~/.n
 
 ## The screen
 
+**Light / dark** — the sun/moon button in the header switches themes (on the app and the About page). It follows your system setting until you pick one, then remembers your choice.
+
 **Header** — live stats: active vs. total known listings, how many you've liked, whether learned weights are on, and your RentCast quota for the month (`4/50`). The **ranking mode buttons** set how results are ordered: *My criteria* (pure preferences), *Balanced* (the default), or *Like my likes* (leans on apartments you've hearted). Whatever the mode, likes can never pull results outside your budget/beds/area bounds. Under **advanced** there's a slider for fine-tuning the same blend (`--alpha` in the CLI). Switching modes re-ranks instantly — no network cost.
 
-Once you have likes, each card grows a small **prefs ↔ likes bar** showing what that card's ranking is based on: mostly blue means it's there because it fits your stated criteria; mostly green means it's there because it resembles something you liked.
+Once you have likes, each card grows a small **prefs ↔ likes bar** showing what that card's ranking is based on: mostly green means it's there because it fits your stated criteria; mostly rose means it's there because it resembles something you liked.
 
-**Cards** — one per apartment, best match first: match %, price with **↓$ price-drop** and **NEW** badges, facts, neighborhood, the feature it's *furthest* from your ask on (the orange chip — this is the tradeoff you'd be making), price history when it has changed, and a "shown ×N" chip when you've seen it in previous sessions.
+**Cards** — one per apartment, best match first: match %, price with **↓$ price-drop** and **NEW** badges, facts, neighborhood, the feature it's *furthest* from your ask on (the tradeoff you'd be making), price history when it has changed, and a "shown ×N" chip when you've seen it in previous sessions.
 
 **Buttons on each card:**
 
