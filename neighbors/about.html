@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About · Neighbors</title>
+<meta name="description" content="Why Neighbors exists: NYC rental search that ranks by how close a listing is to what you want, instead of hiding everything that misses a filter.">
+<style>
+  /* Same warm editorial palette as the app (web.html) — one product, one look. */
+  :root {
+    --bg: #f7f5f0; --card: #ffffff; --line: #e9e4da; --line-soft: #f1ede5;
+    --ink: #26221b; --dim: #837c6e; --accent: #b4552d; --accent-soft: #f6e8e1;
+    --good: #3e7a5e; --good-soft: #e7f1ec; --warn: #a8742c; --warn-soft: #f7eedf;
+    --shadow: 0 1px 2px rgba(38,34,27,.05), 0 8px 24px rgba(38,34,27,.06);
+    --serif: ui-serif, "New York", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.6 -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+         -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); }
+  svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7;
+          stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- header (mirrors the app's) ---------- */
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 24px;
+           background: var(--card); border-bottom: 1px solid var(--line);
+           position: sticky; top: 0; z-index: 10; }
+  header .brand { font: 600 19px var(--serif); letter-spacing: -.01em; color: var(--ink);
+                  text-decoration: none; }
+  header nav { margin-left: auto; display: flex; gap: 4px; }
+  header nav a { color: var(--dim); text-decoration: none; font-size: 14px;
+                 padding: 6px 12px; border-radius: 999px; }
+  header nav a:hover { color: var(--ink); background: var(--line-soft); }
+  header nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+
+  main { max-width: 1040px; margin: 0 auto; padding: 0 24px 72px; }
+  section { padding: 56px 0 0; }
+  .eyebrow { color: var(--accent); font-size: 12.5px; font-weight: 600;
+             letter-spacing: .1em; text-transform: uppercase; margin: 0 0 12px; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -.015em; margin: 0; }
+  h2 { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.15; margin-bottom: 12px; }
+  h3 { font-size: 18px; line-height: 1.3; margin-bottom: 6px; }
+  .section-lede { color: var(--dim); max-width: 640px; margin: 0 0 28px; font-size: 17px; }
+
+  /* ---------- hero ---------- */
+  .hero { padding-top: 72px; max-width: 760px; }
+  .hero h1 { font-size: clamp(36px, 6vw, 58px); line-height: 1.05; margin-bottom: 20px; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero .lede { font-size: clamp(17px, 2.2vw, 20px); color: #4c463b; margin: 0 0 28px; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px;
+         padding: 11px 20px; font-size: 15px; font-weight: 500; text-decoration: none;
+         border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .btn.primary:hover { background: #000; }
+
+  /* ---------- filter vs. Neighbors comparison ---------- */
+  figure { margin: 0; }
+  .compare { background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+             box-shadow: var(--shadow); overflow: hidden; }
+  .compare-query { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+                   padding: 16px 22px; border-bottom: 1px solid var(--line-soft);
+                   font-size: 14px; color: var(--dim); }
+  .q-chip { background: var(--line-soft); color: var(--ink); border-radius: 999px;
+            padding: 3px 11px; font-size: 13px; }
+  .compare-grid { display: grid; grid-template-columns: 1.3fr 1fr 1.25fr; }
+  .compare-grid > div { padding: 13px 22px; border-bottom: 1px solid var(--line-soft);
+                        display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .compare-grid .col-h { font-size: 12px; font-weight: 600; letter-spacing: .08em;
+                         text-transform: uppercase; color: var(--dim); background: #fcfbf8; }
+  .compare-grid .col-h.ours { color: var(--accent); }
+  .apt { flex-direction: column; align-items: flex-start !important; gap: 0 !important; }
+  .apt b { font-family: var(--serif); font-size: 17px; }
+  .apt span { color: var(--dim); font-size: 13.5px; }
+  .verdict { font-size: 13.5px; }
+  .shown { color: var(--good); }
+  .gone { color: var(--dim); }
+  .gone s { text-decoration-thickness: 1px; }
+  .match { font: 600 13px var(--serif); background: var(--accent-soft); color: var(--accent);
+           border-radius: 999px; padding: 2px 10px; flex: 0 0 auto; }
+  .trade { font-size: 12.5px; color: var(--warn); background: var(--warn-soft);
+           border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+           overflow: hidden; text-overflow: ellipsis; }
+  .trade.fit { color: var(--good); background: var(--good-soft); }
+  .compare-foot { padding: 14px 22px; font-size: 13.5px; color: var(--dim); background: #fcfbf8; }
+  .compare-foot b { color: var(--ink); }
+
+  /* ---------- feature cards ---------- */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .feature { background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+             padding: 22px; box-shadow: var(--shadow); }
+  .feature .ico { width: 42px; height: 42px; border-radius: 12px; display: grid;
+                  place-items: center; background: var(--accent-soft); color: var(--accent);
+                  margin-bottom: 14px; }
+  .feature p { margin: 0; color: #5b5448; font-size: 15px; }
+
+  /* ---------- how it works ---------- */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: step; }
+  .step { position: relative; padding: 22px 22px 22px 22px; border-radius: 16px;
+          background: var(--card); border: 1px solid var(--line); }
+  .step::before { counter-increment: step; content: counter(step);
+                  display: grid; place-items: center; width: 30px; height: 30px;
+                  border-radius: 50%; background: var(--ink); color: #fff;
+                  font: 600 14px var(--serif); margin-bottom: 14px; }
+  .step p { margin: 0; color: #5b5448; font-size: 15px; }
+  .step .src { margin-top: 12px; font-size: 13px; color: var(--dim); }
+
+  /* ---------- principles ---------- */
+  .principles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px;
+                border-top: 1px solid var(--line); }
+  .principle { display: grid; grid-template-columns: 26px 1fr; gap: 12px;
+               padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .principle svg { color: var(--good); width: 22px; height: 22px; margin-top: 2px; }
+  .principle h3 { font-size: 16.5px; margin-bottom: 2px; }
+  .principle p { margin: 0; color: #5b5448; font-size: 14.5px; }
+
+  /* ---------- live stats + closing ---------- */
+  .live { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+  .live .tile { flex: 1 1 140px; background: var(--card); border: 1px solid var(--line);
+                border-radius: 14px; padding: 16px 18px; }
+  .live .num { font: 600 30px/1.1 var(--serif); }
+  .live .lbl { color: var(--dim); font-size: 13px; }
+  .closing { margin-top: 56px; padding: 40px 32px; border-radius: 20px; text-align: center;
+             background: var(--ink); color: #f7f5f0; }
+  .closing h2 { color: #fff; }
+  .closing p { color: #cfc8ba; margin: 0 auto 22px; max-width: 520px; }
+  .closing .btn { background: #fff; color: var(--ink); border-color: #fff; }
+  footer { text-align: center; color: var(--dim); font-size: 13px; padding: 28px 24px 40px; }
+
+  @media (max-width: 860px) {
+    .features, .steps { grid-template-columns: 1fr 1fr; }
+    .principles { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 620px) {
+    header { padding: 12px 16px; }
+    main { padding: 0 16px 56px; }
+    section { padding-top: 44px; }
+    .hero { padding-top: 44px; }
+    .features, .steps { grid-template-columns: 1fr; }
+    /* the comparison becomes one stacked card per apartment */
+    .compare-grid { grid-template-columns: 1fr 1fr; }
+    .compare-grid .col-h { display: none; }
+    .compare-grid .apt { grid-column: 1 / -1; border-bottom: none; padding-bottom: 4px; }
+    .compare-grid > div { padding: 8px 16px; }
+    .compare-grid .verdict { padding-bottom: 14px; }
+    .compare-grid .ours-cell { padding-bottom: 14px; flex-wrap: wrap; }
+    .compare-grid .verdict, .compare-grid .ours-cell { flex-direction: column;
+      align-items: flex-start; gap: 4px; }
+    .compare-grid .verdict::before, .compare-grid .ours-cell::before {
+      font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    .compare-grid .verdict::before { content: "Filter"; color: var(--dim); }
+    .compare-grid .ours-cell::before { content: "Neighbors"; color: var(--accent); }
+    .trade { white-space: normal; }
+    .compare-query, .compare-foot { padding: 14px 16px; }
+    .closing { padding: 32px 20px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/">Neighbors</a>
+  <nav aria-label="Main">
+    <a href="/">Listings</a>
+    <a href="/about" aria-current="page">About</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="hero-h">
+    <p class="eyebrow">Why Neighbors</p>
+    <h1 id="hero-h">The right apartment is often <em>one filter away.</em></h1>
+    <p class="lede">Rental sites only show you what passes every checkbox. Neighbors ranks
+      every NYC rental by how close it is to what you want, so the near-misses you'd
+      happily take stay on the list.</p>
+    <div class="ctas">
+      <a class="btn primary" href="/">Browse your matches →</a>
+      <a class="btn" href="#how">How it ranks</a>
+    </div>
+  </section>
+
+  <section aria-labelledby="problem-h">
+    <p class="eyebrow">The problem</p>
+    <h2 id="problem-h">Filters say yes or no. Your preferences don't.</h2>
+    <p class="section-lede">A $3,550 apartment isn't wrong for a $3,500 budget. It's
+      $50 off. Here's the same search two ways.</p>
+
+    <figure class="compare" aria-label="The same four apartments, shown by a filter and by Neighbors">
+      <div class="compare-query">
+        Searching for <span class="q-chip">≤ $3,500</span><span class="q-chip">1 bedroom</span><span class="q-chip">Williamsburg</span>
+      </div>
+      <div class="compare-grid">
+        <div class="col-h">Apartment</div>
+        <div class="col-h">A typical filter</div>
+        <div class="col-h ours">Neighbors</div>
+
+        <div class="apt"><b>$3,450</b><span>1 bd · Williamsburg</span></div>
+        <div class="verdict shown"><span>✓ Shown</span></div>
+        <div class="ours-cell"><span class="match">97%</span><span class="trade fit">fits everything</span></div>
+
+        <div class="apt"><b>$3,550</b><span>1 bd · Williamsburg</span></div>
+        <div class="verdict gone"><span><s>Hidden</s> · $50 over</span></div>
+        <div class="ours-cell"><span class="match">92%</span><span class="trade">$50 over budget</span></div>
+
+        <div class="apt"><b>$3,200</b><span>1 bd · Greenpoint</span></div>
+        <div class="verdict gone"><span><s>Hidden</s> · wrong area</span></div>
+        <div class="ours-cell"><span class="match">90%</span><span class="trade">0.6 km from your area</span></div>
+
+        <div class="apt"><b>$3,900</b><span>1 bd · Williamsburg</span></div>
+        <div class="verdict gone"><span><s>Hidden</s> · $400 over</span></div>
+        <div class="ours-cell"><span class="match">64%</span><span class="trade">$400 over budget</span></div>
+      </div>
+      <figcaption class="compare-foot">The filter shows <b>1 of 4</b>. Neighbors ranks all
+        four and tells you what each one trades off. (Illustrative numbers.)</figcaption>
+    </figure>
+  </section>
+
+  <section id="what" aria-labelledby="what-h">
+    <p class="eyebrow">What you get</p>
+    <h2 id="what-h">A search that thinks like you do</h2>
+    <p class="section-lede">Every listing gets a 0–100 match score and one plain-language
+      note about its biggest tradeoff, so you can decide fast.</p>
+    <div class="features">
+      <article class="feature">
+        <div class="ico"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M8.5 11h5M11 8.5v5"/></svg></div>
+        <h3>Near-misses, ranked</h3>
+        <p>Slightly over budget or one stop farther out? It still shows up, ordered by how
+          close it is. You decide what's worth it.</p>
+      </article>
+      <article class="feature">
+        <div class="ico"><svg class="i" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9c-1.2-2.8.6-6 3.8-6C9 5 11 6.5 12 8c1-1.5 3-3 5.2-3 3.2 0 5 3.2 3.8 6-2 4.5-9 9-9 9z"/></svg></div>
+        <h3>Learns your taste</h3>
+        <p>Like a few places and similar ones rise. After five likes it learns which
+          features you really care about.</p>
+      </article>
+      <article class="feature">
+        <div class="ico"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Verified as real</h3>
+        <p>Each address is checked against NYC building records. Phantom or non-residential
+          listings get flagged before you waste a visit.</p>
+      </article>
+      <article class="feature">
+        <div class="ico"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 21l1.5-4M15 21l-1.5-4"/></svg></div>
+        <h3>Your real commute</h3>
+        <p>Add work or a friend's place and every card shows the trip by subway or PATH,
+          step by step, with a link to live directions.</p>
+      </article>
+      <article class="feature">
+        <div class="ico"><svg class="i" viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/></svg></div>
+        <h3>Remembers the market</h3>
+        <p>Every search adds to a running picture: what's new, what dropped in price, and a
+          price history for each apartment.</p>
+      </article>
+      <article class="feature">
+        <div class="ico"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Private by design</h3>
+        <p>It runs on your computer. Your searches and likes stay here, and API keys live in
+          your system keychain.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="how" aria-labelledby="how-h">
+    <p class="eyebrow">How it ranks</p>
+    <h2 id="how-h">Three steps, every search</h2>
+    <p class="section-lede">Your hard limits are a fence; similarity only reorders what's
+      inside it.</p>
+    <div class="steps">
+      <div class="step">
+        <h3>Gather</h3>
+        <p>Pull active listings from licensed and public sources, merge duplicates, and keep a
+          price history.</p>
+        <div class="src">RentCast (market-rate) · NYC Housing Connect (affordable)</div>
+      </div>
+      <div class="step">
+        <h3>Gate</h3>
+        <p>Drop anything outside your non-negotiables: over your stretch budget, too few
+          bedrooms, or in an area you've ruled out.</p>
+        <div class="src">Nothing can pull a listing back past this line</div>
+      </div>
+      <div class="step">
+        <h3>Rank</h3>
+        <p>Score what's left by weighted distance from your ideal on price, size, location
+          and amenities, blended with what you've liked.</p>
+        <div class="src">Weighted k-nearest neighbors</div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="trust-h">
+    <p class="eyebrow">Built to be trusted</p>
+    <h2 id="trust-h">Honest by default</h2>
+    <p class="section-lede">A ranking is only useful if you can trust it, so a few rules
+      are built in.</p>
+    <div class="principles">
+      <div class="principle"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>
+        <div><h3>Your limits always win</h3><p>Likes and learning only reorder results. They
+          never stretch your budget or your area.</p></div></div>
+      <div class="principle"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>
+        <div><h3>Unknown isn't "no"</h3><p>A listing that doesn't mention a dishwasher isn't
+          excluded. Missing data is a small penalty, not a dealbreaker.</p></div></div>
+      <div class="principle"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>
+        <div><h3>Estimates are labeled</h3><p>Affordable rents and commute times are marked as
+          estimates, and guessed amenities say "likely".</p></div></div>
+      <div class="principle"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>
+        <div><h3>Clean data only</h3><p>A licensed API and NYC open data, no scraping. Links
+          take you to the source instead of copying it.</p></div></div>
+      <div class="principle"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>
+        <div><h3>Gentle on free tiers</h3><p>Responses are cached and requests rate-limited,
+          and fetching stops at 45 of RentCast's 50 free monthly calls.</p></div></div>
+      <div class="principle"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>
+        <div><h3>Nothing leaves your machine</h3><p>The app only listens on your own computer.
+          There's no account, no tracking, and no upload.</p></div></div>
+    </div>
+  </section>
+
+  <section id="yours" aria-labelledby="yours-h" hidden>
+    <p class="eyebrow">Your search so far</p>
+    <h2 id="yours-h">What Neighbors is tracking for you</h2>
+    <div class="live">
+      <div class="tile"><div class="num" id="n-total">–</div><div class="lbl">listings tracked</div></div>
+      <div class="tile"><div class="num" id="n-active">–</div><div class="lbl">available now</div></div>
+      <div class="tile"><div class="num" id="n-verified">–</div><div class="lbl">verified real</div></div>
+      <div class="tile"><div class="num" id="n-liked">–</div><div class="lbl">liked</div></div>
+    </div>
+  </section>
+
+  <div class="closing">
+    <h2>Ready to look?</h2>
+    <p>Your ranked matches are waiting, near-misses included.</p>
+    <a class="btn" href="/">Browse your matches →</a>
+  </div>
+</main>
+
+<footer>Neighbors runs entirely on your computer · open source under the MIT license</footer>
+
+<script>
+"use strict";
+// Personalize with live numbers when the app's API is reachable; the page
+// reads fine without them, so any failure just leaves this section hidden.
+(async () => {
+  try {
+    const r = await fetch("/api/state");
+    if (!r.ok) return;
+    const m = await r.json();
+    const fmt = (n) => Number(n || 0).toLocaleString();
+    document.getElementById("n-total").textContent = fmt(m.store?.total);
+    document.getElementById("n-active").textContent = fmt(m.store?.active);
+    document.getElementById("n-verified").textContent = fmt(m.verification?.confirmed);
+    document.getElementById("n-liked").textContent = fmt(m.feedback?.liked);
+    document.getElementById("yours").hidden = false;
+  } catch (e) { /* offline or not served by the app: keep the static page */ }
+})();
+</script>
+</body>
+</html>

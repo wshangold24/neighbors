@@ -86,6 +86,14 @@ verification are stubbed, and the browser tests block every non-local request.
 | WEB-42 | With an empty store, the page shows an empty state pointing to "Fetch new listings" instead of a blank grid. | `tests/e2e/test_web_ui.py` |
 | WEB-43 | If the store has listings but the current filters rule them all out, the empty state says which filters excluded them and links to Preferences. | `tests/e2e/test_web_ui.py` |
 
+### About page
+
+| ID | Requirement | Test |
+|---|---|---|
+| WEB-50 | `/about` explains why Neighbors exists, what it does, and how it ranks. The app header links to it, and its call to action returns to the listings. | `tests/e2e/test_web_ui.py` |
+| WEB-51 | The about page makes no external requests and has no horizontal scroll at 375px. | `tests/e2e/test_web_ui.py` |
+| WEB-52 | When the app is running, the about page shows live counts (tracked, available, verified, liked) that match the app. | `tests/e2e/test_web_ui.py` |
+
 ### API contract
 
 The JSON API behind the page (`/api/state`, `/api/results`, `/api/similar`,

@@ -23,7 +23,7 @@ packages = ["neighbors", "neighbors.providers"]
 
 # ship the non-Python assets the app needs at runtime
 [tool.setuptools.package-data]
-neighbors = ["web.html", "neighborhoods.json"]
+neighbors = ["web.html", "about.html", "neighborhoods.json"]
 
 [tool.setuptools.dynamic]
 version = { attr = "neighbors.__version__" }

@@ -7,6 +7,7 @@ encodes the JSON. Errors are {"error": message} with a 4xx/5xx status.
 
 Routes (all JSON except the page):
   GET  /                    the single-page app (web.html)
+  GET  /about               why Neighbors exists (about.html)
   GET  /api/state           prefs, store stats, quota, options, verification
   GET  /api/results         ranked results (?alpha=0..1, ?bbox=s,w,n,e,
                             ?poly=lat,lon,lat,lon,...)
@@ -40,7 +41,9 @@ from .webapi import MAX_VERIFY_BATCH, Api, parse_bbox, parse_poly
 __all__ = ["Api", "make_handler", "make_server", "serve"]
 
 HOST = "127.0.0.1"   # local only: the API reads and writes the user's data
-HTML_FILE = Path(__file__).with_name("web.html")
+# static pages, by path
+PAGES = {"/": "web.html", "/index.html": "web.html", "/about": "about.html"}
+PAGE_DIR = Path(__file__).parent
 MAX_BODY_BYTES = 1 << 20
 
 # A client hanging up mid-response (navigating away, an aborted fetch) is
@@ -237,8 +240,9 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self):
             url = urlparse(self.path)
-            if url.path in ("/", "/index.html"):
-                self._send(200, HTML_FILE.read_bytes(), "text/html; charset=utf-8")
+            page = PAGES.get(url.path.rstrip("/") or "/")
+            if page:
+                self._send(200, (PAGE_DIR / page).read_bytes(), "text/html; charset=utf-8")
                 return
             self._dispatch(GET_ROUTES, POST_ROUTES, lambda: parse_qs(url.query))
 

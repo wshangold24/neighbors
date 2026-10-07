@@ -4,8 +4,8 @@ Per-run budgets (SafeSession) protect a single run; this ledger protects the
 MONTH. It counts billable requests per provider per calendar month so that
 iterating several times a week can never blow through a free tier.
 
-Only providers listed in MONTHLY_LIMITS are constrained — scrapers have no
-monthly quota (they're already throttled per-run by SafeSession).
+Only providers listed in MONTHLY_LIMITS are constrained — the NYC open-data
+sources have no monthly quota (they're throttled per-run by SafeSession).
 """
 
 from __future__ import annotations

@@ -362,6 +362,12 @@ class TestWebApi:
         page = call("/")
         assert "<title>Neighbors</title>" in page
 
+    def test_about_page_served(self, web):
+        call, _ = web
+        for path in ("/about", "/about/"):
+            assert "<title>About · Neighbors</title>" in call(path)
+        assert 'href="/about"' in call("/")          # linked from the app header
+
     def test_state_reports_store_and_quota(self, web):
         call, app_dir = web
         ledger = QuotaLedger(app_dir / "store.db")

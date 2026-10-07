@@ -481,3 +481,42 @@ class TestRentCastKey:
         page.locator("#btn-prefs").click()
         page.locator("#pref-adv-toggle").click()
         expect(page.locator("#rc-key-status")).to_contain_text("✓ saved in your")
+
+
+# ---------- about page ----------
+
+class TestAboutPage:
+    def test_reachable_from_app_and_back(self, live_app, page):
+        """WEB-50: the header's About link opens the about page, which explains
+        the why/what/how, and its call to action returns to the listings."""
+        open_app(page, live_app)
+        page.locator("#nav-about").click()
+        expect(page).to_have_url(live_app.url + "about")
+        expect(page).to_have_title("About · Neighbors")
+        expect(page.locator("h1")).to_contain_text("one filter away")
+        for heading in ("Filters say yes or no", "A search that thinks like you do",
+                        "Three steps, every search", "Honest by default"):
+            expect(page.get_by_role("heading", name=re.compile(heading))).to_be_visible()
+        expect(page.locator('nav a[aria-current="page"]')).to_have_text("About")
+        page.locator(".hero .btn.primary").click()
+        expect(page.locator(CARDS).first).to_be_visible()
+
+    def test_local_only_and_phone_friendly(self, live_app, page):
+        """WEB-51"""
+        page.set_viewport_size({"width": 375, "height": 812})
+        page.goto(live_app.url + "about")
+        page.wait_for_load_state("networkidle")
+        assert live_app.external_requests == []
+        overflow = page.evaluate(
+            "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        assert overflow <= 0, f"about page is {overflow}px wider than a 375px phone"
+
+    def test_live_numbers_match_app_state(self, live_app, page):
+        """WEB-52"""
+        open_app(page, live_app)
+        like_first_card(page)
+        available = stat(page, "available")
+        page.goto(live_app.url + "about")
+        expect(page.locator("#yours")).to_be_visible()
+        expect(page.locator("#n-liked")).to_have_text("1")
+        expect(page.locator("#n-active")).to_have_text(f"{available:,}")

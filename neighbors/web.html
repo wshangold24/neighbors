@@ -43,6 +43,9 @@
   button.link { background: none; border: none; color: var(--accent);
                 text-decoration: underline; padding: 0; font-size: inherit; }
   .actions { display: flex; align-items: center; gap: 8px; }
+  .nav-link { color: var(--dim); text-decoration: none; font-size: 13.5px;
+              padding: 7px 12px; border-radius: 999px; }
+  .nav-link:hover { color: var(--ink); background: var(--line-soft); }
   button { background: var(--card); color: var(--ink); border: 1px solid var(--line);
            border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13.5px;
            font-family: inherit; transition: border-color .15s, background .15s, color .15s;
@@ -422,6 +425,7 @@
   </div>
   <span class="spacer"></span>
   <div class="actions">
+    <a id="nav-about" class="nav-link" href="/about">About</a>
     <button id="btn-prefs">Preferences</button>
     <div class="menu-wrap">
       <button id="btn-update" class="primary" title="Update your listings"

@@ -100,6 +100,7 @@ single-page app:
 - see a map view with box or freehand area search
 - edit preferences, including neighborhoods to want or avoid and important places with commutes
 - fetch, refresh, and verify listings from the **Update** menu
+- read **About** (`/about`) for why the app exists and what it does
 
 The CLI and the web app share the same state in `~/.neighbors/`, so you can use both
 interchangeably. For a full tour, see [docs/WEB_GUIDE.md](docs/WEB_GUIDE.md).
@@ -127,6 +128,8 @@ with no scraping.
 
 - [docs/METHOD.md](docs/METHOD.md) explains the approach from first principles.
 - [docs/SCORING.md](docs/SCORING.md) is the exact scoring spec and its design invariants.
+- [docs/DESIGN.md](docs/DESIGN.md) records the technical and system-design decisions, with
+  the alternatives considered.
 
 ## Testing
 
@@ -162,6 +165,7 @@ neighbors/
   webapi.py            web app actions (results, feedback, prefs, fetch, verify)
   views.py             pure listing → JSON view builders (trust, deltas, commutes)
   web.html             the single-page UI
+  about.html           the About page: why Neighbors exists
   models.py            Listing / Preferences, validation, neighborhood geometry
   knn.py               feature space, weighted distance, KNN, match %
   engine.py            hard gate, two-stage ranking, fetch planning
@@ -180,7 +184,7 @@ neighbors/
 scripts/
   build_neighborhoods.py   optional: fetch precise NTA boundary polygons
 tests/                     unit, integration, CLI, API, and browser (e2e/) tests
-docs/                      SPEC, METHOD, SCORING, WEB_GUIDE
+docs/                      SPEC, DESIGN, METHOD, SCORING, WEB_GUIDE
 ```
 
 Your local data (preferences, the SQLite store, and the HTTP cache) lives in
