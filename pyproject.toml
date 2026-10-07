@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aptfinder"
+description = "NYC rental finder with KNN similarity search and a local web UI"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dynamic = ["version"]
+dependencies = ["requests>=2.31"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+# `pip install .` gives you an `aptfinder` command (aptfinder web, aptfinder engine, …)
+[project.scripts]
+aptfinder = "aptfinder.cli:main"
+
+[tool.setuptools]
+packages = ["aptfinder", "aptfinder.providers"]
+
+# ship the non-Python assets the app needs at runtime
+[tool.setuptools.package-data]
+aptfinder = ["web.html", "neighborhoods.json"]
+
+[tool.setuptools.dynamic]
+version = { attr = "aptfinder.__version__" }
