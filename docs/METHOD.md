@@ -1,4 +1,4 @@
-# How neighbors matches apartments
+# How Neighbors matches apartments
 
 This document explains the method behind the app — how a pile of scraped and API-fetched listings becomes a ranked list of apartments you'd actually want. It assumes no background in search or machine learning; concepts are introduced as they're needed.
 
@@ -6,7 +6,7 @@ This document explains the method behind the app — how a pile of scraped and A
 
 Every listing site works the same way: you set filters (max $3,500, 1 bed, Williamsburg) and see only listings that pass *all* of them. Filters are binary — a $3,510 apartment is invisible, a great place one neighborhood over is invisible. But your actual preferences aren't binary; they're a *center of gravity* with soft edges. The "similar listings" module on those sites often feels better than the search itself precisely because it ranks by closeness instead of filtering by cutoffs.
 
-neighbors is built on that observation. Instead of asking "does this listing pass every test?", it asks "**how far is this listing from what you want?**" and sorts by the answer.
+Neighbors is built on that observation. Instead of asking "does this listing pass every test?", it asks "**how far is this listing from what you want?**" and sorts by the answer.
 
 ## 2. The pipeline at a glance
 
@@ -34,7 +34,7 @@ Each stage is a separate module (`providers/`, `models.py`, `store.py`, `engine.
 
 > **Concept: feature vector.** To compare things mathematically, you describe each one as a list of numbers — a point in space. A 2-bed, $3,200, 700 ft² apartment in Williamsburg becomes something like (3200, 2, 1, 40.708, −73.957, 700, {dishwasher, laundry}). Once everything is a point, "similar" has a precise meaning: *close together in that space*.
 
-neighbors uses six features: price, bedrooms, bathrooms, location (latitude/longitude), square footage, and amenities. Your preferences become a point in the same space (your neighborhoods are converted to a geographic center; your budget becomes the price coordinate), so listings and preferences are directly comparable.
+Neighbors uses six features: price, bedrooms, bathrooms, location (latitude/longitude), square footage, and amenities. Your preferences become a point in the same space (your neighborhoods are converted to a geographic center; your budget becomes the price coordinate), so listings and preferences are directly comparable.
 
 **Normalization — why raw numbers can't be compared.** Price differences are in the thousands; bedroom differences are single digits. If you naively summed differences, price would drown out everything. So each feature's difference is first rescaled to roughly 0-to-1, where 0 means "identical" and 1 means "about as different as reasonable candidates get." A $1,000 price gap and a cross-borough location gap end up numerically comparable, and the *weights* (next section) then express how much each should matter.
 
