@@ -38,7 +38,59 @@ Every search follows the same pipeline: **fetch → validate → merge into the 
 
 ---
 
-## 2. Architecture
+## 2. Deployment: a local app, not a hosted website
+
+**Decision:** Neighbors runs on the user's own computer. One `pip install` gives a
+terminal command and a web UI served from `127.0.0.1`. There's no public website,
+no backend to operate, and no accounts.
+
+**Why:**
+- **No overhead.** There are no servers, domains, TLS certificates, databases,
+  deploys or uptime to manage, and nothing to pay for month to month. The whole
+  "infrastructure" is a Python package and one SQLite file.
+- **Portable.** It runs the same on macOS, Windows and Linux with Python 3.9+. The
+  user's whole state is one folder (`~/.neighbors/`) they can copy, back up or
+  delete. With cached data it still works offline.
+- **Each user brings their own key.** RentCast's free tier is 50 calls a month *per
+  key*. A public site would have to share one key across everyone, which a few
+  users would use up in a day. That means a paid plan, plus the licensing questions
+  of redistributing listing data to the public. Locally, each person uses their own
+  free key within its terms.
+- **Private by default.** Searches, likes, saved places (home, work, friends'
+  addresses) and API keys never leave the machine. Hosting would mean storing
+  personal location data and credentials for other people, which brings
+  authentication, encryption, breach risk and privacy obligations with it.
+- **Far less to build and secure.** No sign-up, login, sessions, multi-tenant data
+  isolation, rate limiting per user, abuse prevention or public attack surface. The
+  server only listens on localhost.
+- **Fast.** Ranking runs next to the data, with no round trip to a server.
+
+**Trade-offs accepted:**
+- No sync across devices, and no access from a phone when away from the computer.
+- Each user installs Python and the package. This is more friction than opening a
+  URL, though the setup is two commands.
+- No shared signal between users. For example, the app can't say "people who liked
+  this also liked…"
+
+**Alternatives considered:**
+- *Hosted web app* (for example Render or Fly with Postgres). This has all the
+  costs listed above, and the free-tier API model breaks.
+- *Static site* (GitHub Pages). It can't keep API keys secret or run scheduled
+  fetches, and it can't call these APIs from the browser without exposing the key.
+- *Desktop app* (Electron or Tauri). It gives a native window, but adds a large
+  runtime and per-OS builds and signing. The browser already is a good UI.
+- *Docker image.* An earlier version shipped one. It was dropped to keep exactly
+  two ways to run the app. It also adds an install (Docker) for most users, and a
+  container can't reach the host's keychain, where the API key should live.
+
+**What would change if it were hosted:** Postgres with per-user rows (the store's
+JSON column maps to JSONB), real authentication, server-side secrets management
+with one paid data plan, and background fetch workers. The pure core (ranking,
+gate, learning) would carry over unchanged. See *Known limitations*.
+
+---
+
+## 3. Architecture
 
 ### Functional core, imperative shell
 
@@ -73,7 +125,7 @@ HTTP.* This would force a running server just to search from the terminal.
 
 ---
 
-## 3. Ranking
+## 4. Ranking
 
 ### Similarity ranking (weighted KNN) instead of filters
 
@@ -168,7 +220,7 @@ box, without a build step.
 
 ---
 
-## 4. Data
+## 5. Data
 
 ### Sources: a licensed API and open data, no scraping
 
@@ -235,7 +287,7 @@ is used.
 
 ---
 
-## 5. Networking and limits
+## 6. Networking and limits
 
 ### One guarded HTTP session for everything
 
@@ -278,7 +330,7 @@ More accurate, but paid or heavyweight for this purpose.
 
 ---
 
-## 6. Web app
+## 7. Web app
 
 ### Standard-library HTTP server bound to 127.0.0.1
 
@@ -330,7 +382,7 @@ tradeoff) first. Details open in a dialog so the grid never reflows.
 
 ---
 
-## 7. Security and privacy
+## 8. Security and privacy
 
 ### API keys in the OS credential store
 
@@ -355,11 +407,13 @@ the UI, and it is redacted from `--debug` reports.
 ### Local-only by construction
 
 There are no accounts, no telemetry and no server component. The only outbound
-traffic is the documented data sources, all through `SafeSession`.
+traffic is the documented data sources, all through `SafeSession`. See
+[section 2](#2-deployment-a-local-app-not-a-hosted-website) for why the app is
+local rather than hosted.
 
 ---
 
-## 8. Quality
+## 9. Quality
 
 ### Spec-driven tests
 
@@ -398,7 +452,7 @@ easy to explain and to test (CLI-01 to CLI-09).
 
 ---
 
-## 9. Known limitations and next steps
+## 10. Known limitations and next steps
 
 - **Coverage:** two listing sources means a thinner market than the big sites.
   Another licensed feed would plug in as a `Provider` subclass.
