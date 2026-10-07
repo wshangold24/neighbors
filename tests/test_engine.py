@@ -9,14 +9,14 @@ import time
 
 from .conftest import run_cli, seed_home
 
-from aptfinder.engine import gate, plan_fetch, rank
-from aptfinder.feedback import Feedback
-from aptfinder.knn import DEFAULT_WEIGHTS
-from aptfinder.learn import MIN_LIKES, learn_weights, load_weights, save_weights
-from aptfinder.manifest import Manifest, covers, prefs_fingerprint, prefs_snapshot
-from aptfinder.models import Listing, Preferences
-from aptfinder.quota import MONTHLY_LIMITS, QuotaLedger, current_month
-from aptfinder.store import Store, identity
+from neighbors.engine import gate, plan_fetch, rank
+from neighbors.feedback import Feedback
+from neighbors.knn import DEFAULT_WEIGHTS
+from neighbors.learn import MIN_LIKES, learn_weights, load_weights, save_weights
+from neighbors.manifest import Manifest, covers, prefs_fingerprint, prefs_snapshot
+from neighbors.models import Listing, Preferences
+from neighbors.quota import MONTHLY_LIMITS, QuotaLedger, current_month
+from neighbors.store import Store, identity
 
 
 def L(**kw) -> Listing:
@@ -214,7 +214,7 @@ class TestGateAndRank:
             assert r.score == base_scores[r.listing.id]
 
     def test_region_classification(self):
-        from aptfinder.models import region_of, NEIGHBORHOOD_COORDS
+        from neighbors.models import region_of, NEIGHBORHOOD_COORDS
         assert region_of(*NEIGHBORHOOD_COORDS["williamsburg"]) == "Brooklyn"
         assert region_of(*NEIGHBORHOOD_COORDS["astoria"]) == "Queens"
         assert region_of(*NEIGHBORHOOD_COORDS["financial district"]) == "Manhattan"
@@ -222,7 +222,7 @@ class TestGateAndRank:
         assert region_of(0.0, 0.0) == ""            # outside the metro
 
     def test_borough_filter_gate(self):
-        from aptfinder.models import NEIGHBORHOOD_COORDS
+        from neighbors.models import NEIGHBORHOOD_COORDS
         prefs = Preferences(max_price=9000, beds=1, boroughs=["Brooklyn"])
         bk = L(id="bk", **dict(zip(("lat", "lon"), NEIGHBORHOOD_COORDS["williamsburg"])))
         qn = L(id="qn", **dict(zip(("lat", "lon"), NEIGHBORHOOD_COORDS["astoria"])),
@@ -234,7 +234,7 @@ class TestGateAndRank:
     def test_borough_filter_keeps_border_listings(self):
         """Like the neighborhood filter, the borough gate keeps a listing right
         on the line — within the border buffer of the chosen borough."""
-        from aptfinder.models import NEIGHBORHOOD_COORDS
+        from neighbors.models import NEIGHBORHOOD_COORDS
         prefs = Preferences(max_price=9000, beds=1, boroughs=["Brooklyn"])
         # ~1 km north of Greenpoint (Brooklyn), toward the Queens line
         glat, glon = NEIGHBORHOOD_COORDS["greenpoint"]
@@ -242,7 +242,7 @@ class TestGateAndRank:
         assert {x.id for x in gate(prefs, [border])} == {"edge"}
 
     def test_hard_commute_limit_excludes_far_listings(self):
-        from aptfinder.models import NEIGHBORHOOD_COORDS
+        from neighbors.models import NEIGHBORHOOD_COORDS
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
         rlat, rlon = NEIGHBORHOOD_COORDS["riverdale"]
         prefs = Preferences(max_price=9000, beds=1, places=[
@@ -259,7 +259,7 @@ class TestGateAndRank:
         assert {x.id for x in gate(prefs, [no_coords])} == {"nc"}   # unknown ≠ too far
 
     def test_soft_commute_limit_does_not_gate(self):
-        from aptfinder.models import NEIGHBORHOOD_COORDS
+        from neighbors.models import NEIGHBORHOOD_COORDS
         rlat, rlon = NEIGHBORHOOD_COORDS["riverdale"]
         prefs = Preferences(max_price=9000, beds=1, places=[
             {"name": "Work", "lat": 40.71, "lon": -73.95, "limit": "soft", "max_min": 5}])
@@ -433,7 +433,7 @@ class TestEngineCli:
         r = run_cli(["engine", "--cached"], tmp_path, stdin="like 1\nhide 2\nq\n")
         assert r.returncode == 0, r.stderr
         assert "engine>" in r.stdout
-        fb = Feedback(tmp_path / ".aptfinder" / "store.db")
+        fb = Feedback(tmp_path / ".neighbors" / "store.db")
         assert len(fb.liked) == 1 and len(fb.hidden) == 1
 
     def test_engine_rerank_after_feedback(self, tmp_path):
@@ -449,7 +449,7 @@ class TestEngineCli:
         assert r.returncode == 0, r.stderr
         assert "Fetch plan (nothing executed)" in r.stdout
         assert "rentcast" in r.stdout
-        assert QuotaLedger(tmp_path / ".aptfinder" / "store.db").spent("rentcast") == 0
+        assert QuotaLedger(tmp_path / ".neighbors" / "store.db").spent("rentcast") == 0
 
     def test_cache_status_and_quota_commands(self, tmp_path):
         seed_home(tmp_path)
@@ -462,8 +462,8 @@ class TestEngineCli:
         seed_home(tmp_path)
         r = run_cli(["weights"], tmp_path)
         assert r.returncode == 0 and "defaults" in r.stdout
-        (tmp_path / ".aptfinder" / "weights.json").write_text(
+        (tmp_path / ".neighbors" / "weights.json").write_text(
             json.dumps(DEFAULT_WEIGHTS))
         r2 = run_cli(["weights", "--reset-weights"], tmp_path)
         assert r2.returncode == 0
-        assert not (tmp_path / ".aptfinder" / "weights.json").exists()
+        assert not (tmp_path / ".neighbors" / "weights.json").exists()

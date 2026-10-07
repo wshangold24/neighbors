@@ -6,7 +6,7 @@ import json
 
 from .conftest import seed_home  # noqa: F401 (used via web fixture pattern)
 
-from aptfinder.transit import (
+from neighbors.transit import (
     STATIONS, estimate_commute, nearest_station, stations_within,
 )
 

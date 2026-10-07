@@ -21,7 +21,7 @@ from typing import Optional
 
 import requests
 
-log = logging.getLogger("aptfinder.http")
+log = logging.getLogger("neighbors.http")
 
 DEFAULT_HEADERS = {
     "User-Agent": (

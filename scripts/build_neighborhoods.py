@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate precise neighborhood boundaries for the compatibility score.
 
-Run this ONCE (it needs network) to produce `aptfinder/neighborhoods.json`:
+Run this ONCE (it needs network) to produce `neighbors/neighborhoods.json`:
 
     python scripts/build_neighborhoods.py
 
@@ -29,13 +29,13 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from aptfinder.models import NEIGHBORHOOD_COORDS  # noqa: E402
+from neighbors.models import NEIGHBORHOOD_COORDS  # noqa: E402
 
 DATASET = "9nt8-h7nd"
 ENDPOINT = f"https://data.cityofnewyork.us/resource/{DATASET}.json"
 SIMPLIFY_DEG = 0.0006          # ~66 m server-side simplification
 RDP_EPS_DEG = 0.00025          # extra client-side thinning
-OUT = Path(__file__).resolve().parent.parent / "aptfinder" / "neighborhoods.json"
+OUT = Path(__file__).resolve().parent.parent / "neighbors" / "neighborhoods.json"
 
 
 def _get(lat: float, lon: float) -> dict | None:

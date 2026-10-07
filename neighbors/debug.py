@@ -1,6 +1,6 @@
-"""Debug reporting for aptfinder.
+"""Debug reporting for neighbors.
 
-Run the CLI with --debug to write a report into ~/.aptfinder/debug/ — one
+Run the CLI with --debug to write a report into ~/.neighbors/debug/ — one
 timestamped file per run (run_<timestamp>.json), plus latest.json always
 holding the most recent report. Each is a single paste-able JSON document
 containing everything needed to diagnose a bad run: environment, args,
@@ -24,14 +24,14 @@ from pathlib import Path
 
 from . import __version__
 
-DEBUG_DIR = Path.home() / ".aptfinder" / "debug"
+DEBUG_DIR = Path.home() / ".neighbors" / "debug"
 KEEP_REPORTS = 25            # newest reports kept; older ones pruned
 REDACTED = "***REDACTED***"
 _seq = itertools.count()     # disambiguates multiple saves in one process
 
 
 class LogCapture(logging.Handler):
-    """Collects all aptfinder log records for inclusion in the report."""
+    """Collects all neighbors log records for inclusion in the report."""
 
     def __init__(self):
         super().__init__(logging.DEBUG)
@@ -60,7 +60,7 @@ class DebugSession:
         self.results: list | None = None   # [(Listing, dist, parts), ...]
         self.error: str | None = None
         self.log_capture = LogCapture()
-        root = logging.getLogger("aptfinder")
+        root = logging.getLogger("neighbors")
         root.addHandler(self.log_capture)
         if root.level in (logging.NOTSET, logging.WARNING):
             root.setLevel(logging.DEBUG)
@@ -100,7 +100,7 @@ class DebugSession:
             }
         return {
             "meta": {
-                "aptfinder_version": __version__,
+                "neighbors_version": __version__,
                 "python": sys.version.split()[0],
                 "platform": platform.platform(),
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),

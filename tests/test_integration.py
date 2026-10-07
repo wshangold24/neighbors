@@ -1,4 +1,4 @@
-"""Integration tests for aptfinder.
+"""Integration tests for neighbors.
 
 Covers the real seams between components:
   * SafeSession against a live local HTTP server (rate limiting, caching,
@@ -20,12 +20,12 @@ import pytest
 
 from .conftest import PROMPT_INPUT, make_session, run_cli, seed_home
 
-from aptfinder.http import BudgetExceeded, SafeSession  # noqa: E402
-from aptfinder.knn import Query, distance, knn, match_pct  # noqa: E402
-from aptfinder.models import Listing, Preferences  # noqa: E402
-from aptfinder.providers.demo import DemoProvider  # noqa: E402
-from aptfinder.providers.housingconnect import HousingConnectProvider  # noqa: E402
-from aptfinder.providers.rentcast import RentCastProvider, resolve_api_key  # noqa: E402
+from neighbors.http import BudgetExceeded, SafeSession  # noqa: E402
+from neighbors.knn import Query, distance, knn, match_pct  # noqa: E402
+from neighbors.models import Listing, Preferences  # noqa: E402
+from neighbors.providers.demo import DemoProvider  # noqa: E402
+from neighbors.providers.housingconnect import HousingConnectProvider  # noqa: E402
+from neighbors.providers.rentcast import RentCastProvider, resolve_api_key  # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -208,7 +208,7 @@ class TestRentCastProvider:
 
     def test_no_api_key_makes_zero_requests(self, monkeypatch, tmp_path):
         monkeypatch.delenv("RENTCAST_API_KEY", raising=False)
-        monkeypatch.setattr("aptfinder.providers.rentcast.KEY_FILE",
+        monkeypatch.setattr("neighbors.providers.rentcast.KEY_FILE",
                             tmp_path / "nokey")
         p, sess = self.make([RENTCAST_FIXTURE], key=None)
         assert p.fetch(Preferences()) == []
@@ -221,7 +221,7 @@ class TestRentCastProvider:
     def test_key_resolution_order(self, monkeypatch, tmp_path):
         keyfile = tmp_path / "rentcast_key"
         keyfile.write_text("file-key\n")
-        monkeypatch.setattr("aptfinder.providers.rentcast.KEY_FILE", keyfile)
+        monkeypatch.setattr("neighbors.providers.rentcast.KEY_FILE", keyfile)
         monkeypatch.setenv("RENTCAST_API_KEY", "env-key")
         assert resolve_api_key("explicit-key") == "explicit-key"
         assert resolve_api_key(None) == "env-key"
@@ -311,7 +311,7 @@ class TestCliEndToEnd:
         assert r.returncode == 1
         assert "unknown provider" in r.stdout
         assert "No active listings available." in r.stdout
-        prefs = json.loads((tmp_path / ".aptfinder" / "preferences.json").read_text())
+        prefs = json.loads((tmp_path / ".neighbors" / "preferences.json").read_text())
         assert prefs["max_price"] == 3500
         assert prefs["neighborhoods"] == ["williamsburg", "greenpoint"]
 
@@ -339,9 +339,9 @@ class TestCliEndToEnd:
         assert "run once without --cached" in r.stdout
 
     def test_prefs_only_mode_updates_and_exits(self, tmp_path):
-        from aptfinder.store import Store
+        from neighbors.store import Store
         seed_home(tmp_path)
-        store_path = tmp_path / ".aptfinder" / "store.db"
+        store_path = tmp_path / ".neighbors" / "store.db"
         listings_before = Store(store_path).records()
 
         # Change only max price; Enter (blank) keeps every other current value.
@@ -352,7 +352,7 @@ class TestCliEndToEnd:
         assert "Fetching" not in r.stdout and "%]" not in r.stdout, \
             "prefs-only mode must not fetch or search"
 
-        prefs = json.loads((tmp_path / ".aptfinder" / "preferences.json").read_text())
+        prefs = json.loads((tmp_path / ".neighbors" / "preferences.json").read_text())
         assert prefs["max_price"] == 4200                            # updated
         assert prefs["neighborhoods"] == ["williamsburg", "greenpoint"]  # kept
         assert prefs["amenities"] == ["laundry_in_unit"]                 # kept
@@ -371,15 +371,15 @@ class TestCliEndToEnd:
         assert r.returncode == 0, r.stderr
         assert "not recognized: willyburg" in r.stdout
         assert "not recognized: zillow" in r.stdout
-        prefs = json.loads((tmp_path / ".aptfinder" / "preferences.json").read_text())
+        prefs = json.loads((tmp_path / ".neighbors" / "preferences.json").read_text())
         assert prefs["neighborhoods"] == ["williamsburg"]
         assert prefs["sources"] == ["housingconnect"]
 
     def test_sources_resolution_precedence(self):
         """--sources flag > saved preference > all registered providers."""
         from argparse import Namespace
-        from aptfinder.cli import resolve_sources
-        from aptfinder.providers import PROVIDERS
+        from neighbors.cli import resolve_sources
+        from neighbors.providers import PROVIDERS
         prefs = Preferences(sources=["housingconnect"])
         assert resolve_sources(Namespace(sources="rentcast"), prefs) == ["rentcast"]
         assert resolve_sources(Namespace(sources=None), prefs) == ["housingconnect"]
@@ -388,6 +388,6 @@ class TestCliEndToEnd:
     def test_prefs_only_mode_works_without_existing_prefs(self, tmp_path):
         r = run_cli(["--prefs"], tmp_path, stdin=PROMPT_INPUT)
         assert r.returncode == 0, r.stderr
-        prefs = json.loads((tmp_path / ".aptfinder" / "preferences.json").read_text())
+        prefs = json.loads((tmp_path / ".neighbors" / "preferences.json").read_text())
         assert prefs["max_price"] == 3500
-        assert not (tmp_path / ".aptfinder" / "store.db").exists()
+        assert not (tmp_path / ".neighbors" / "store.db").exists()

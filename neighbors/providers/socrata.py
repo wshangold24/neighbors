@@ -9,7 +9,7 @@ data.cityofnewyork.us; up to ~1,000 req/hour). It's optional — anonymous
 access works, just with a smaller shared budget. Resolution order:
   1. explicit argument
   2. NYC_APP_TOKEN environment variable
-  3. ~/.aptfinder/nyc_app_token file
+  3. ~/.neighbors/nyc_app_token file
 
 All requests go through SafeSession (rate-limited, cached, budgeted).
 """
@@ -21,10 +21,10 @@ import logging
 import os
 from pathlib import Path
 
-log = logging.getLogger("aptfinder.socrata")
+log = logging.getLogger("neighbors.socrata")
 
 DOMAIN = "https://data.cityofnewyork.us"
-TOKEN_FILE = Path.home() / ".aptfinder" / "nyc_app_token"
+TOKEN_FILE = Path.home() / ".neighbors" / "nyc_app_token"
 
 # Dataset ids used across the app (documented here so the magic strings live
 # in exactly one place).

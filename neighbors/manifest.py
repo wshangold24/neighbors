@@ -5,7 +5,7 @@ which preferences and which provider produced each fetch. That lets a later
 run answer: "did a previous fetch already cover what I'm about to ask for?"
 If yes, the listings are already in the store and the network can be skipped.
 
-Storage: one JSON object per line (JSONL) in ~/.aptfinder/cache/manifest.jsonl.
+Storage: one JSON object per line (JSONL) in ~/.neighbors/cache/manifest.jsonl.
 JSONL is append-only, so recording a fetch never rewrites history.
 """
 

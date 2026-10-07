@@ -2,14 +2,13 @@
 
 Command structure (positional command + shared option flags):
 
-  aptfinder [search]        one-shot: fetch → merge into store → rank → print
-  aptfinder engine          iterative session: rank + like/hide feedback loop
-  aptfinder web             local browser UI (see WEB_GUIDE.md)
-  aptfinder cache-status    what's cached, from which prefs, how stale
-  aptfinder quota           monthly API usage per provider (--set-used to sync)
-  aptfinder weights         current ranking weights (learned or default)
+  neighbors [search]        one-shot: fetch → merge into store → rank → print
+  neighbors engine          iterative session: rank + like/hide feedback loop
+  neighbors web             local browser UI (see docs/WEB_GUIDE.md)
+  neighbors cache-status    what's cached, from which prefs, how stale
+  neighbors quota           monthly API usage per provider (--set-used to sync)
+  neighbors weights         current ranking weights (learned or default)
 
-Requires Python 3.9+ (enforced with a clear message in run.py).
 
 This module is the imperative shell (I/O, prompting, printing); all ranking
 and planning logic lives in pure modules (engine, knn, store, manifest, …).
@@ -37,7 +36,7 @@ from .providers import PROVIDERS
 from .quota import QuotaLedger
 from .store import Store
 
-APP_DIR = Path.home() / ".aptfinder"
+APP_DIR = Path.home() / ".neighbors"
 PREFS_FILE = APP_DIR / "preferences.json"
 CACHE_DIR = APP_DIR / "cache"
 STORE_FILE = APP_DIR / "store.db"
@@ -157,8 +156,8 @@ def _billable_requests(session: SafeSession, since: int) -> int:
     return sum(1 for h in session.history[since:] if h["event"] == "response")
 
 
-def fetch_listings(prefs: Preferences, sources: list[str], budget: int,
-                   min_interval: float, max_pages: int,
+def fetch_listings(prefs: Preferences, sources: list[str],
+                   budget: int = 25, min_interval: float = 4.0, max_pages: int = 2,
                    rentcast_key: str | None = None,
                    dbg: DebugSession | None = None,
                    ignore_coverage: bool = False) -> list[Listing]:
@@ -207,7 +206,7 @@ def fetch_listings(prefs: Preferences, sources: list[str], budget: int,
                 dbg.provider_stats.append(stat)
             break
         except Exception as e:  # a broken provider must not kill the run
-            logging.getLogger("aptfinder").warning("%s failed: %s", name, e)
+            logging.getLogger("neighbors").warning("%s failed: %s", name, e)
             stat["error"] = traceback.format_exc()
             found = []
 
@@ -225,7 +224,7 @@ def fetch_listings(prefs: Preferences, sources: list[str], budget: int,
     ledger.save()
     if not listings and all(d.action == "fetch" for d in decisions.values()):
         print("\n  No live listings retrieved (sites likely blocked scraping).")
-        print("  Try again later, raise --max-pages, or add another provider.")
+        print("  Try again later or add another provider.")
     print(f"  Network requests used: {session.spent}/{budget} "
           "(rest served from cache or skipped)")
     return listings
@@ -288,7 +287,7 @@ def mode_seed(prefs: Preferences, listings: list[Listing], seed_ref: str,
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
-        prog="aptfinder",
+        prog="neighbors",
         description="NYC rental KNN search — surfaces near-miss listings strict filters hide.",
     )
     ap.add_argument("command", nargs="?", default="search",
@@ -310,18 +309,10 @@ def main(argv=None) -> int:
                          "dashboard (e.g. rentcast=4)")
     ap.add_argument("--port", type=int, default=8787,
                     help="with web: port for the local web UI (default 8787)")
-    ap.add_argument("--host", default="127.0.0.1",
-                    help="with web: bind address (use 0.0.0.0 to expose it, e.g. in Docker)")
     ap.add_argument("--no-browser", action="store_true",
-                    help="with web: don't auto-open a browser (for servers/containers)")
+                    help="with web: don't auto-open a browser")
     ap.add_argument("--rentcast-key", metavar="KEY",
-                    help="RentCast API key; saved to ~/.aptfinder/rentcast_key for future runs")
-    ap.add_argument("--budget", type=int, default=25,
-                    help="max network requests this run (default 25)")
-    ap.add_argument("--interval", type=float, default=4.0,
-                    help="min seconds between requests to the same site (default 4)")
-    ap.add_argument("--max-pages", type=int, default=2,
-                    help="max result pages per provider (default 2)")
+                    help="RentCast API key; saved to ~/.neighbors/rentcast_key for future runs")
     ap.add_argument("--cached", action="store_true",
                     help="reuse last fetched listings; no network at all")
     ap.add_argument("--like", metavar="REF",
@@ -331,7 +322,7 @@ def main(argv=None) -> int:
     ap.add_argument("--reset-prefs", action="store_true",
                     help="re-prompt all preferences, then continue with the search")
     ap.add_argument("--debug", action="store_true",
-                    help="write a paste-able per-run diagnostic report into ~/.aptfinder/debug/")
+                    help="write a paste-able per-run diagnostic report into ~/.neighbors/debug/")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv)
 
@@ -372,7 +363,7 @@ def _run(args, dbg: DebugSession | None) -> int:
         return informational[args.command](args)
     if args.command == "web":
         from .web import serve  # lazy: web imports cli for /api/fetch
-        serve(APP_DIR, args.port, open_browser=not args.no_browser, host=args.host)
+        serve(APP_DIR, args.port, open_browser=not args.no_browser)
         return 0
 
     if args.prefs:  # prefs-only mode: edit + save, touch nothing else
@@ -412,13 +403,12 @@ def _load_store_listings(args, prefs, dbg) -> tuple[Store, list[Listing]] | None
         if args.rentcast_key:
             from .providers.rentcast import save_api_key
             save_api_key(args.rentcast_key)
-            print("  RentCast key saved to ~/.aptfinder/rentcast_key")
+            print("  RentCast key saved to ~/.neighbors/rentcast_key")
         # if nothing in the store is still "active", a covering-fetch record
         # would otherwise keep us from refreshing — force past it.
         no_active = not store.active(window_days=prefs.active_window_days)
         fetched = fetch_listings(prefs, resolve_sources(args, prefs),
-                                 args.budget, args.interval,
-                                 args.max_pages, rentcast_key=args.rentcast_key,
+                                 rentcast_key=args.rentcast_key,
                                  dbg=dbg, ignore_coverage=no_active)
         stats = store.upsert(fetched)
         store.save()
@@ -451,7 +441,7 @@ def cmd_search(args, prefs: Preferences, dbg: DebugSession | None) -> int:
         results = mode_seed(prefs, listings, args.like, annotations)
     else:
         results = mode_search(prefs, listings, annotations)
-        print("Tip: 'aptfinder engine' gives you like/hide feedback that improves results.")
+        print("Tip: 'neighbors engine' gives you like/hide feedback that improves results.")
     if dbg:
         dbg.results = results
     return 0
@@ -479,7 +469,7 @@ def cmd_engine(args, prefs: Preferences, dbg: DebugSession | None) -> int:
     feedback = Feedback(FEEDBACK_FILE)
     weights = load_weights(WEIGHTS_FILE)
     if weights:
-        print("  Using learned weights (aptfinder weights to inspect).")
+        print("  Using learned weights (neighbors weights to inspect).")
 
     def rerank():
         ranked = rank(prefs, listings, feedback, alpha=args.alpha, weights=weights)
@@ -537,7 +527,7 @@ def _maybe_learn_weights(prefs: Preferences, store: Store, feedback: Feedback) -
     if learned:
         save_weights(WEIGHTS_FILE, learned)
         print(f"  Learned weights updated from {len(liked)} likes "
-              "(aptfinder weights to inspect, --reset-weights to discard).")
+              "(neighbors weights to inspect, --reset-weights to discard).")
 
 
 # ---------- informational commands ----------
@@ -602,7 +592,7 @@ def cmd_weights(args) -> int:
             marker = f"  (default {DEFAULT_WEIGHTS[feature]}, {delta:+.2f})"
         print(f"    {feature:<10} {current[feature]:>6.2f}{marker}")
     print(f"\n  Learning needs at least {MIN_LIKES} liked listings "
-          "(aptfinder engine → like N).\n")
+          "(neighbors engine → like N).\n")
     return 0
 
 

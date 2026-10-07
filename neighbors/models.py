@@ -274,7 +274,7 @@ class Listing:
     lat: Optional[float] = None
     lon: Optional[float] = None
     amenities: list[str] = field(default_factory=list)
-    # Three-tier amenity model (see METHOD.md):
+    # Three-tier amenity model (see docs/METHOD.md):
     #   amenities          — reported by the listing source (the complete set;
     #                        this is what the hard gate reasons about)
     #   derived_amenities  — high-confidence FACTS from authoritative lookups

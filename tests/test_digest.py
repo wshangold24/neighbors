@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from aptfinder.digest import build_digest
+from neighbors.digest import build_digest
 
 
 class FakeStore:

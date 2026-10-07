@@ -9,7 +9,7 @@ runs free.
 API key resolution (in order):
   1. constructor arg (from --rentcast-key)
   2. RENTCAST_API_KEY environment variable
-  3. ~/.aptfinder/rentcast_key file
+  3. ~/.neighbors/rentcast_key file
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from pathlib import Path
 from ..models import Listing, Preferences, nearest_neighborhood
 from .base import Provider
 
-log = logging.getLogger("aptfinder.rentcast")
+log = logging.getLogger("neighbors.rentcast")
 
-KEY_FILE = Path.home() / ".aptfinder" / "rentcast_key"
+KEY_FILE = Path.home() / ".neighbors" / "rentcast_key"
 ENDPOINT = "https://api.rentcast.io/v1/listings/rental/long-term"
 MAX_DAYS_OLD = 60          # ignore stale listings
 RADIUS_MILES = 2.5         # around chosen-neighborhood centroid

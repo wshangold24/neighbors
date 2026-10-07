@@ -1,4 +1,4 @@
-# aptfinder
+# neighbors
 
 NYC rental search that ranks by **similarity (weighted KNN)** instead of hard filters — so near-misses ($3,550 when your cap is $3,500, Greenpoint when you searched Williamsburg) show up ranked by closeness, like a site's "similar listings" module.
 
@@ -6,7 +6,7 @@ NYC rental search that ranks by **similarity (weighted KNN)** instead of hard fi
 
 You only need **Python 3.9+** installed ([python.org/downloads](https://www.python.org/downloads/); on Windows check *"Add Python to PATH"*). If you have several Pythons installed, the launcher finds and uses a compatible one automatically — you don't have to activate anything first.
 
-- **macOS:** double-click **`Start aptfinder.command`** in Finder.
+- **macOS:** double-click **`Start neighbors.command`** in Finder.
 - **Windows:** double-click **`run.bat`**.
 - **Linux / any terminal:** run `./run.sh`.
 
@@ -15,25 +15,25 @@ The first launch sets up a private environment and installs everything (a few mi
 ### Or with Docker (nothing else to install)
 
 ```bash
-docker build -t aptfinder .
-docker run -p 8787:8787 -v aptfinder-data:/data aptfinder
+docker build -t neighbors .
+docker run -p 8787:8787 -v neighbors-data:/data neighbors
 # then open http://localhost:8787
 ```
 
 ### Or as a normal Python package
 
 ```bash
-pip install .          # gives you an `aptfinder` command
-aptfinder web          # local browser UI
+pip install .          # gives you an `neighbors` command
+neighbors web          # local browser UI
 ```
 
 For development, `pip install -e ".[dev]"` then `pytest`.
 
-First run prompts (in the app) for preferences, saved to `~/.aptfinder/`. To change them from the terminal without searching, use `aptfinder --prefs`.
+First run prompts (in the app) for preferences, saved to `~/.neighbors/`. To change them from the terminal without searching, use `neighbors --prefs`.
 
 ## Commands
 
-Once installed, use the `aptfinder` command; from a source checkout, `python run.py` is equivalent (e.g. `aptfinder web` == `python run.py web`).
+Once installed, use the `neighbors` command; from a source checkout, `python run.py` is equivalent (e.g. `neighbors web` == `python run.py web`).
 
 ```bash
 python run.py                      # search (default): fetch → store → rank
@@ -96,7 +96,7 @@ The primary listings source ([docs](https://developers.rentcast.io/reference/ren
 
 ```bash
 export RENTCAST_API_KEY=your_key          # env var, or:
-python run.py --rentcast-key your_key     # saved to ~/.aptfinder/rentcast_key (chmod 600)
+python run.py --rentcast-key your_key     # saved to ~/.neighbors/rentcast_key (chmod 600)
 ```
 
 ### Housing Connect — affordable-lottery inventory (NYC Open Data)
@@ -138,18 +138,18 @@ Rental sources publish little structured amenity data, so the app uses a **three
 
 The **RentCast property lookup** is on-demand (a "Look up amenities" button on a listing) and spends **one** RentCast API call, quota-checked — so it's opt-in per listing, never run across the pool. The Preferences amenity picker marks with ✓ the amenities the app can actually confirm from data.
 
-`aptfinder/providers/demo.py` generates synthetic listings but is **test-only**: it is not registered as a source and is used exclusively by the test suite.
+`neighbors/providers/demo.py` generates synthetic listings but is **test-only**: it is not registered as a source and is used exclusively by the test suite.
 
 ### NYC app token (recommended, free)
 
 NYC Open Data works **anonymously**, but anonymous requests share a small throttled pool across all users, so under load they can be rate-limited (HTTP 429). Registering a free **app token** moves you to a per-token budget (~1,000 requests/hour) — plenty for this app, and it makes Housing Connect fetches and listing verification reliable rather than occasionally throttled. It is not secret auth (it only identifies your app for rate-limiting), but it noticeably improves reliability.
 
 1. Create a free account at [data.cityofnewyork.us](https://data.cityofnewyork.us) → **Developer Settings** → **App Tokens** → create one.
-2. Provide it to aptfinder any of these ways (resolved in this order):
+2. Provide it to neighbors any of these ways (resolved in this order):
 
 ```bash
 export NYC_APP_TOKEN=your_token                       # env var, or:
-echo "your_token" > ~/.aptfinder/nyc_app_token        # saved token file
+echo "your_token" > ~/.neighbors/nyc_app_token        # saved token file
 ```
 
 Without a token the app still runs — it just relies on the shared anonymous pool and may occasionally be throttled on a heavy fetch.
@@ -175,7 +175,7 @@ Full explanation with teaching notes in **`METHOD.md`**. Short version: listings
 **Precise neighborhood boundaries (optional).** Location compatibility treats each neighborhood as an *area*: a listing inside it scores a perfect location match, off-center or not. Out of the box that area is a disk sized from the neighborhood spacing. For pixel-accurate boundaries, run once (needs network, free — NYC Open Data NTA polygons):
 
 ```bash
-python scripts/build_neighborhoods.py    # writes aptfinder/neighborhoods.json
+python scripts/build_neighborhoods.py    # writes neighbors/neighborhoods.json
 ```
 
 The app then uses the real polygons and falls back to disks for anything unbuilt — so the file is entirely optional.
@@ -184,7 +184,7 @@ The app then uses the real polygons and falls back to disks for anything unbuilt
 
 ## Adding a provider
 
-Subclass `Provider` in `aptfinder/providers/`, implement `fetch()` using `self.session.get()` (rate limiting comes free), register it in `providers/__init__.py`.
+Subclass `Provider` in `neighbors/providers/`, implement `fetch()` using `self.session.get()` (rate limiting comes free), register it in `providers/__init__.py`.
 
 ## Debug mode
 
@@ -192,7 +192,7 @@ Subclass `Provider` in `aptfinder/providers/`, implement `fetch()` using `self.s
 python run.py --debug            # any command works with --debug
 ```
 
-Each debug run writes its own report into `~/.aptfinder/debug/` as `run_<timestamp>.json`, with `latest.json` always holding the most recent one (the newest 25 are kept, older reports pruned automatically). Each report is a single paste-able JSON document for reporting problems. It contains the environment and args, your preferences, every HTTP request (URL, status, cache hit/miss, retries, timing, bytes), per-provider outcomes with full tracebacks, validation-drop logs, the top-20 ranked results with per-feature distance breakdowns, and any crash traceback (a crash under `--debug` is captured into the report instead of killing the run, exit code 2). API keys are redacted from the report before it's written.
+Each debug run writes its own report into `~/.neighbors/debug/` as `run_<timestamp>.json`, with `latest.json` always holding the most recent one (the newest 25 are kept, older reports pruned automatically). Each report is a single paste-able JSON document for reporting problems. It contains the environment and args, your preferences, every HTTP request (URL, status, cache hit/miss, retries, timing, bytes), per-provider outcomes with full tracebacks, validation-drop logs, the top-20 ranked results with per-feature distance breakdowns, and any crash traceback (a crash under `--debug` is captured into the report instead of killing the run, exit code 2). API keys are redacted from the report before it's written.
 
 ## Testing
 
@@ -209,7 +209,7 @@ Pure logic lives in modules; `cli.py` is the only place that prints or prompts.
 
 ```
 run.py                          entry point
-aptfinder/
+neighbors/
   cli.py                        imperative shell: commands, prompts, display
   models.py                     Listing/Preferences, validation, neighborhood coords + areas
   neighborhoods.json            optional NTA boundary polygons (generated; see scripts/)
@@ -240,11 +240,11 @@ ENGINE_PLAN.md                  design doc for the engine milestones
 ## Runtime files
 
 ```
-~/.aptfinder/preferences.json   saved preferences
-~/.aptfinder/store.db           SQLite database — listings, like/hide feedback, and the monthly quota ledger, all in one file (legacy store.json/feedback.json/quota.json are imported automatically)
-~/.aptfinder/weights.json       learned ranking weights (if enough likes)
-~/.aptfinder/cache/             HTTP response cache (12h TTL) + manifest.jsonl
-~/.aptfinder/rentcast_key       saved RentCast API key (chmod 600)
-~/.aptfinder/nyc_app_token      saved NYC Open Data app token (optional)
-~/.aptfinder/debug/             per-run --debug reports (run_<timestamp>.json + latest.json)
+~/.neighbors/preferences.json   saved preferences
+~/.neighbors/store.db           SQLite database — listings, like/hide feedback, and the monthly quota ledger, all in one file (legacy store.json/feedback.json/quota.json are imported automatically)
+~/.neighbors/weights.json       learned ranking weights (if enough likes)
+~/.neighbors/cache/             HTTP response cache (12h TTL) + manifest.jsonl
+~/.neighbors/rentcast_key       saved RentCast API key (chmod 600)
+~/.neighbors/nyc_app_token      saved NYC Open Data app token (optional)
+~/.neighbors/debug/             per-run --debug reports (run_<timestamp>.json + latest.json)
 ```

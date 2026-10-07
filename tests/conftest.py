@@ -16,10 +16,10 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from aptfinder.http import SafeSession  # noqa: E402
-from aptfinder.models import Preferences  # noqa: E402
-from aptfinder.providers.demo import DemoProvider  # noqa: E402
-from aptfinder.store import Store  # noqa: E402
+from neighbors.http import SafeSession  # noqa: E402
+from neighbors.models import Preferences  # noqa: E402
+from neighbors.providers.demo import DemoProvider  # noqa: E402
+from neighbors.store import Store  # noqa: E402
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -90,17 +90,17 @@ def run_cli(args: list[str], home: Path, stdin: str = "",
     env = {**os.environ, "HOME": str(home), **(extra_env or {})}
     env.pop("RENTCAST_API_KEY", None) if not (extra_env or {}).get("RENTCAST_API_KEY") else None
     return subprocess.run(
-        [sys.executable, "run.py", *args],
+        [sys.executable, "-m", "neighbors", *args],
         cwd=PROJECT_ROOT, env=env, input=stdin,
         capture_output=True, text=True, timeout=120,
     )
 
 
 def seed_home(home: Path, with_listings: bool = True) -> None:
-    """Pre-populate ~/.aptfinder as if a prior live fetch had succeeded.
+    """Pre-populate ~/.neighbors as if a prior live fetch had succeeded.
     DemoProvider is used ONLY here, to generate test fixtures — it is not
     reachable from the CLI."""
-    d = home / ".aptfinder"
+    d = home / ".neighbors"
     d.mkdir(parents=True, exist_ok=True)
     prefs = Preferences(max_price=3500, beds=1,
                         neighborhoods=["williamsburg", "greenpoint"],

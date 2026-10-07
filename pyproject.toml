@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aptfinder"
+name = "neighbors"
 description = "NYC rental finder with KNN similarity search and a local web UI"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -14,16 +14,16 @@ dependencies = ["requests>=2.31"]
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
 
-# `pip install .` gives you an `aptfinder` command (aptfinder web, aptfinder engine, …)
+# `pip install .` gives you an `neighbors` command (neighbors web, neighbors engine, …)
 [project.scripts]
-aptfinder = "aptfinder.cli:main"
+neighbors = "neighbors.cli:main"
 
 [tool.setuptools]
-packages = ["aptfinder", "aptfinder.providers"]
+packages = ["neighbors", "neighbors.providers"]
 
 # ship the non-Python assets the app needs at runtime
 [tool.setuptools.package-data]
-aptfinder = ["web.html", "neighborhoods.json"]
+neighbors = ["web.html", "neighborhoods.json"]
 
 [tool.setuptools.dynamic]
-version = { attr = "aptfinder.__version__" }
+version = { attr = "neighbors.__version__" }

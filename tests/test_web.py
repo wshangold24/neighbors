@@ -12,17 +12,17 @@ import pytest
 
 from .conftest import seed_home
 
-from aptfinder.feedback import Feedback
-from aptfinder.models import Preferences
-from aptfinder.quota import QuotaLedger
-from aptfinder.web import Api, make_server
+from neighbors.feedback import Feedback
+from neighbors.models import Preferences
+from neighbors.quota import QuotaLedger
+from neighbors.web import Api, make_server
 
 
 @pytest.fixture()
 def web(tmp_path):
-    """Server thread over a seeded ~/.aptfinder dir; yields a request helper."""
+    """Server thread over a seeded ~/.neighbors dir; yields a request helper."""
     seed_home(tmp_path)
-    app_dir = tmp_path / ".aptfinder"
+    app_dir = tmp_path / ".neighbors"
     server = make_server(app_dir, port=0)
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
@@ -106,7 +106,7 @@ class TestVerifyEndpoint:
         # verification is scoped to the displayable (in-area, active) listings,
         # not the whole citywide store — that's what keeps "verify all" fast.
         seed_home(tmp_path)
-        api = Api(tmp_path / ".aptfinder")
+        api = Api(tmp_path / ".neighbors")
         api._building_verifier = self._fake_ok
         visible = len(api._visible_ids(api._prefs(), api._store()))
         assert 0 < visible < 150          # gate really does narrow the set
@@ -160,7 +160,7 @@ class TestVerifyEndpoint:
 
     def test_verify_single_listing_returns_trust(self, tmp_path):
         seed_home(tmp_path)
-        api = Api(tmp_path / ".aptfinder")
+        api = Api(tmp_path / ".neighbors")
         api._building_verifier = self._fake_ok
         lid = api._store().active(window_days=7)[0].id
         r = api.verify(listing_id=lid)
@@ -168,14 +168,14 @@ class TestVerifyEndpoint:
 
     def test_verify_unknown_listing_errors(self, tmp_path):
         seed_home(tmp_path)
-        assert "error" in Api(tmp_path / ".aptfinder").verify(listing_id="nope")
+        assert "error" in Api(tmp_path / ".neighbors").verify(listing_id="nope")
 
     def test_results_show_cached_when_all_stale(self, tmp_path):
         # regression: a full store whose listings have all aged past the active
         # window must still show them (flagged stale), not an empty screen.
-        from aptfinder.store import Store
+        from neighbors.store import Store
         seed_home(tmp_path)
-        app_dir = tmp_path / ".aptfinder"
+        app_dir = tmp_path / ".neighbors"
         store = Store(app_dir / "store.db")
         for r in store.records().values():
             r["last_seen"] = time.time() - 60 * 86400   # 60 days ago
@@ -188,16 +188,16 @@ class TestVerifyEndpoint:
 
     def test_results_not_stale_when_fresh(self, tmp_path):
         seed_home(tmp_path)
-        res = Api(tmp_path / ".aptfinder").results()
+        res = Api(tmp_path / ".neighbors").results()
         assert res["stale"] is False and len(res["results"]) > 0
 
     def test_empty_results_explain_which_filter(self, tmp_path):
         # when the store is full but every listing is filtered out, results must
         # carry a diagnostic naming the culprit rule (not just return blank).
         import dataclasses, json
-        from aptfinder.models import Preferences
+        from neighbors.models import Preferences
         seed_home(tmp_path)
-        app = tmp_path / ".aptfinder"
+        app = tmp_path / ".neighbors"
         prefs = Preferences.from_dict(json.loads((app / "preferences.json").read_text()))
         prefs = dataclasses.replace(prefs, max_price=100)   # impossibly low
         (app / "preferences.json").write_text(json.dumps(prefs.to_dict()))
@@ -209,14 +209,14 @@ class TestVerifyEndpoint:
 
     def test_diagnostic_absent_when_results_present(self, tmp_path):
         seed_home(tmp_path)
-        assert Api(tmp_path / ".aptfinder").results()["diagnostic"] is None
+        assert Api(tmp_path / ".neighbors").results()["diagnostic"] is None
 
     def test_results_survive_null_amenities_record(self, tmp_path):
         # regression: a listing with derived_amenities=None (persisted null)
         # must not crash results() — it should be healed to [] and shown.
-        from aptfinder.store import Store
+        from neighbors.store import Store
         seed_home(tmp_path)
-        app = tmp_path / ".aptfinder"
+        app = tmp_path / ".neighbors"
         store = Store(app / "store.db")
         for rec in store.records().values():
             rec["listing"]["derived_amenities"] = None
@@ -229,10 +229,10 @@ class TestVerifyEndpoint:
     def test_save_area_persists_and_constrains(self, tmp_path):
         # "Use in preferences" must save the drawn shape and keep results inside
         # it — not expand to neighborhood-name radii that drag far listings back.
-        from aptfinder.store import Store
-        from aptfinder.models import Listing, Preferences
+        from neighbors.store import Store
+        from neighbors.models import Listing, Preferences
         import json
-        app = tmp_path / ".aptfinder"; app.mkdir(parents=True)
+        app = tmp_path / ".neighbors"; app.mkdir(parents=True)
         (app / "preferences.json").write_text(json.dumps(
             Preferences(max_price=9000, beds=0, k=50).to_dict()))
         st = Store(app / "store.db")
@@ -256,7 +256,7 @@ class TestVerifyEndpoint:
 
     def test_saved_area_survives_unrelated_prefs_save_but_clears_on_location(self, tmp_path):
         seed_home(tmp_path)
-        api = Api(tmp_path / ".aptfinder")
+        api = Api(tmp_path / ".neighbors")
         api.save_area(bbox=[40.6, -74.0, 40.8, -73.9])
         assert api._prefs().area is not None
         # saving prefs without touching location keeps the area
@@ -269,9 +269,9 @@ class TestVerifyEndpoint:
     def test_partial_refresh_does_not_collapse_list(self, tmp_path):
         # regression: a fetch that re-confirms only a slice of the market must
         # not make the rest (recently seen, just aged past the window) vanish.
-        from aptfinder.store import Store
+        from neighbors.store import Store
         seed_home(tmp_path)
-        app_dir = tmp_path / ".aptfinder"
+        app_dir = tmp_path / ".neighbors"
         api = Api(app_dir)
         full = len(api.results()["results"])       # everything fresh
         assert full > 3
@@ -300,10 +300,10 @@ class TestVerifyEndpoint:
 
     def test_enrich_unknown_listing_errors(self, tmp_path):
         seed_home(tmp_path)
-        assert "error" in Api(tmp_path / ".aptfinder").enrich("does-not-exist")
+        assert "error" in Api(tmp_path / ".neighbors").enrich("does-not-exist")
 
     def test_soft_commute_penalty(self, tmp_path):
-        from aptfinder.models import Listing, NEIGHBORHOOD_COORDS
+        from neighbors.models import Listing, NEIGHBORHOOD_COORDS
         api = Api(tmp_path)
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
         rlat, rlon = NEIGHBORHOOD_COORDS["riverdale"]
@@ -318,7 +318,7 @@ class TestVerifyEndpoint:
 
     def test_priority_scales_with_verify_priority(self, tmp_path):
         seed_home(tmp_path)
-        api = Api(tmp_path / ".aptfinder")
+        api = Api(tmp_path / ".neighbors")
         store = api._store()
         listings = store.active(window_days=7)
         lid = listings[0].id
@@ -343,7 +343,7 @@ class TestWebApi:
     def test_index_serves_page(self, web):
         call, _ = web
         page = call("/")
-        assert "<title>aptfinder</title>" in page
+        assert "<title>Neighbors</title>" in page
 
     def test_state_reports_store_and_quota(self, web):
         call, app_dir = web
@@ -457,9 +457,9 @@ class TestWebApi:
         assert nr["williamsburg"] == "Brooklyn" and nr["astoria"] == "Queens"
 
     def test_search_this_area_filters_to_bbox(self, tmp_path):
-        from aptfinder.models import NEIGHBORHOOD_COORDS
+        from neighbors.models import NEIGHBORHOOD_COORDS
         seed_home(tmp_path)
-        api = Api(tmp_path / ".aptfinder")
+        api = Api(tmp_path / ".neighbors")
         # a tight box around Williamsburg only
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
         bbox = (wlat - 0.02, wlon - 0.02, wlat + 0.02, wlon + 0.02)
@@ -469,10 +469,10 @@ class TestWebApi:
                    for r in res)
 
     def test_search_area_polygon_filters(self, tmp_path):
-        from aptfinder.models import NEIGHBORHOOD_COORDS
-        from aptfinder.web import _point_in_poly
+        from neighbors.models import NEIGHBORHOOD_COORDS
+        from neighbors.web import _point_in_poly
         seed_home(tmp_path)
-        api = Api(tmp_path / ".aptfinder")
+        api = Api(tmp_path / ".neighbors")
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
         d = 0.06
         # a diamond polygon around Williamsburg
@@ -486,9 +486,9 @@ class TestWebApi:
         assert len(api.results(poly=[(wlat, wlon)])["results"]) == len(api.results()["results"])
 
     def test_save_area_writes_neighborhoods_and_clears_boroughs(self, tmp_path):
-        from aptfinder.models import NEIGHBORHOOD_COORDS
+        from neighbors.models import NEIGHBORHOOD_COORDS
         seed_home(tmp_path)
-        api = Api(tmp_path / ".aptfinder")
+        api = Api(tmp_path / ".neighbors")
         api.update_prefs({"boroughs": ["Queens"]})
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
         r = api.save_area((wlat - 0.02, wlon - 0.02, wlat + 0.02, wlon + 0.02))

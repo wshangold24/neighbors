@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from aptfinder.verify import (derived_amenities, inferred_amenities,
+from neighbors.verify import (derived_amenities, inferred_amenities,
                               is_residential, needs_verify, verify_one,
                               verify_store)
 

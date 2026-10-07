@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from ..http import SafeSession
 from ..models import Listing, Preferences
 
-log = logging.getLogger("aptfinder.providers")
+log = logging.getLogger("neighbors.providers")
 
 
 class Provider(ABC):

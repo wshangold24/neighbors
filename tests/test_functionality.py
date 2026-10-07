@@ -17,10 +17,10 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from aptfinder.knn import (  # noqa: E402
+from neighbors.knn import (  # noqa: E402
     DEFAULT_WEIGHTS, Query, distance, haversine_km, knn, match_pct,
 )
-from aptfinder.models import Listing, Preferences, NEIGHBORHOOD_COORDS  # noqa: E402
+from neighbors.models import Listing, Preferences, NEIGHBORHOOD_COORDS  # noqa: E402
 
 
 def L(**kw) -> Listing:
@@ -109,13 +109,13 @@ class TestDistanceSemantics:
         assert r["baths"] > 0.0 and r["sqft"] > 0.0
 
     def test_from_preferences_is_directional(self):
-        from aptfinder.models import Preferences
-        from aptfinder.knn import Query
+        from neighbors.models import Preferences
+        from neighbors.knn import Query
         q = Query.from_preferences(Preferences(max_price=3000, min_price=2000))
         assert q.directional and q.max_price == 3000 and q.min_price == 2000
 
     def test_from_listing_is_not_directional(self):
-        from aptfinder.knn import Query
+        from neighbors.knn import Query
         assert Query.from_listing(L()).directional is False
 
     def test_closer_location_ranks_higher(self):
@@ -145,8 +145,8 @@ class TestDistanceSemantics:
         """A listing IN a wanted neighborhood must score ~0 on location even
         when a second, far-away neighborhood is also wanted (nearest, not the
         centroid of the two)."""
-        from aptfinder.knn import Query
-        from aptfinder.models import Preferences, NEIGHBORHOOD_COORDS
+        from neighbors.knn import Query
+        from neighbors.models import Preferences, NEIGHBORHOOD_COORDS
         # want Financial District AND Astoria (across the city from each other)
         q = Query.from_preferences(Preferences(
             max_price=4000, beds=1, neighborhoods=["financial district", "astoria"]))
@@ -158,8 +158,8 @@ class TestDistanceSemantics:
     def test_location_inside_neighborhood_but_off_center_scores_zero(self):
         """A listing inside a wanted neighborhood's disk — but not at its exact
         centroid — must still score 0 on location (neighborhood is an area)."""
-        from aptfinder.knn import Query
-        from aptfinder.models import Preferences, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_RADIUS
+        from neighbors.knn import Query
+        from neighbors.models import Preferences, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_RADIUS
         q = Query.from_preferences(Preferences(
             max_price=4000, beds=1, neighborhoods=["williamsburg"]))
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
@@ -172,7 +172,7 @@ class TestDistanceSemantics:
     def test_precise_polygon_used_when_available(self, monkeypatch):
         """When a neighborhood has a boundary polygon, location is 0 inside it
         and a real distance outside — overriding the disk approximation."""
-        from aptfinder import models
+        from neighbors import models
         # ~1 km square around (40.70, -73.95) for the 'williamsburg' key
         square = [[40.695, -73.955], [40.705, -73.955],
                   [40.705, -73.945], [40.695, -73.945]]
@@ -182,7 +182,7 @@ class TestDistanceSemantics:
 
     def test_location_falls_back_to_disk_without_polygon(self):
         """No polygon file → the disk model still gives 0 inside a neighborhood."""
-        from aptfinder.models import area_edge_km, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_POLYGONS
+        from neighbors.models import area_edge_km, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_POLYGONS
         assert "williamsburg" not in NEIGHBORHOOD_POLYGONS   # none bundled by default
         wlat, wlon = NEIGHBORHOOD_COORDS["williamsburg"]
         assert area_edge_km(wlat, wlon, ["williamsburg"]) == 0.0

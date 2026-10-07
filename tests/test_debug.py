@@ -8,10 +8,10 @@ import logging
 
 from .conftest import make_session, run_cli, seed_home
 
-from aptfinder.debug import REDACTED, DebugSession
-from aptfinder.knn import Query, knn
-from aptfinder.models import Preferences
-from aptfinder.providers.demo import DemoProvider
+from neighbors.debug import REDACTED, DebugSession
+from neighbors.knn import Query, knn
+from neighbors.models import Preferences
+from neighbors.providers.demo import DemoProvider
 
 
 # --------------------------------------------------------------------------
@@ -91,9 +91,9 @@ class TestDebugReport:
         text = dbg.save(tmp_path).read_text()
         assert REDACTED not in text
 
-    def test_captures_aptfinder_logs(self, tmp_path):
+    def test_captures_neighbors_logs(self, tmp_path):
         dbg = DebugSession()
-        logging.getLogger("aptfinder.streeteasy").warning("blocked by PX")
+        logging.getLogger("neighbors.streeteasy").warning("blocked by PX")
         report = json.loads(dbg.save(tmp_path).read_text())
         assert any("blocked by PX" in line for line in report["log"])
 
@@ -116,7 +116,7 @@ class TestDebugReport:
         assert latest["meta"]["args"] == {"n": 2}
 
     def test_old_reports_pruned(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("aptfinder.debug.KEEP_REPORTS", 3)
+        monkeypatch.setattr("neighbors.debug.KEEP_REPORTS", 3)
         paths = [DebugSession(args={"n": i}).save(tmp_path) for i in range(5)]
         remaining = sorted(tmp_path.glob("run_*.json"))
         assert len(remaining) == 3
@@ -136,7 +136,7 @@ class TestCliDebugMode:
         assert r.returncode == 0, r.stderr
         assert "Debug report written to:" in r.stdout
 
-        debug_dir = tmp_path / ".aptfinder" / "debug"
+        debug_dir = tmp_path / ".neighbors" / "debug"
         assert len(list(debug_dir.glob("run_*.json"))) == 1
         text = (debug_dir / "latest.json").read_text()
         assert fake_key not in text, "API key leaked into debug report"
@@ -153,20 +153,20 @@ class TestCliDebugMode:
         assert r.returncode == 2
         assert "Crashed" in r.stdout
         report = json.loads(
-            (tmp_path / ".aptfinder" / "debug" / "latest.json").read_text())
+            (tmp_path / ".neighbors" / "debug" / "latest.json").read_text())
         assert report["error"] and "EOFError" in report["error"]
 
     def test_without_debug_flag_no_report(self, tmp_path):
         seed_home(tmp_path)
         r = run_cli(["--cached"], tmp_path)
         assert r.returncode == 0
-        assert not (tmp_path / ".aptfinder" / "debug").exists()
+        assert not (tmp_path / ".neighbors" / "debug").exists()
 
     def test_consecutive_runs_accumulate_reports(self, tmp_path):
         seed_home(tmp_path)
         run_cli(["--cached", "--debug"], tmp_path)
         run_cli(["--cached", "--debug", "--like", "1"], tmp_path)
-        debug_dir = tmp_path / ".aptfinder" / "debug"
+        debug_dir = tmp_path / ".neighbors" / "debug"
         assert len(list(debug_dir.glob("run_*.json"))) == 2
         latest = json.loads((debug_dir / "latest.json").read_text())
         assert latest["meta"]["args"]["like"] == "1"
@@ -176,7 +176,7 @@ class TestCliDebugMode:
         # Live sources with no key & unknown provider: stats must record both.
         r = run_cli(["--debug", "--sources", "rentcast,bogus"], tmp_path)
         report = json.loads(
-            (tmp_path / ".aptfinder" / "debug" / "latest.json").read_text())
+            (tmp_path / ".neighbors" / "debug" / "latest.json").read_text())
         stats = {s["provider"]: s for s in report["providers"]}
         assert stats["rentcast"]["error"].startswith("no API key")
         assert stats["bogus"]["error"].startswith("unknown provider")

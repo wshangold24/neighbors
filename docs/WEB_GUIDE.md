@@ -2,14 +2,14 @@
 
 ## Launch
 
-Requires **Python 3.9+** (like the rest of the app — `run.py` checks and tells you if not).
+Requires **Python 3.9+** (like the rest of the app — the installer checks).
 
 ```bash
-python run.py web            # starts at http://127.0.0.1:8787 and opens your browser
-python run.py web --port 9000
+neighbors web            # starts at http://127.0.0.1:8787 and opens your browser
+neighbors web --port 9000
 ```
 
-Stop with Ctrl-C. Everything the web app shows and saves lives in the same `~/.aptfinder/` files the CLI uses — state is re-read from disk on every request, so you can use the web app and the CLI interchangeably, even at the same time, without restarting either.
+Stop with Ctrl-C. Everything the web app shows and saves lives in the same `~/.neighbors/` files the CLI uses — state is re-read from disk on every request, so you can use the web app and the CLI interchangeably, even at the same time, without restarting either.
 
 ## The screen
 
@@ -50,10 +50,10 @@ Each card's commute shows the **full ordered itinerary with per-step times**: �
 |---|---|
 | Daily triage: browse, like/hide, open source pages | **Web** — cards and one-click verdicts are what it's for |
 | "Find more like this one" | **Web** (≈ similar) |
-| Quick check without leaving the terminal | **CLI** `python run.py --cached` |
-| See fetch decisions before spending quota | **CLI** `python run.py engine --plan` |
-| Sync quota with RentCast's dashboard | **CLI** `python run.py quota --set-used rentcast=4` |
-| Inspect/reset learned weights | **CLI** `python run.py weights` / `--reset-weights` |
+| Quick check without leaving the terminal | **CLI** `neighbors --cached` |
+| See fetch decisions before spending quota | **CLI** `neighbors engine --plan` |
+| Sync quota with RentCast's dashboard | **CLI** `neighbors quota --set-used rentcast=4` |
+| Inspect/reset learned weights | **CLI** `neighbors weights` / `--reset-weights` |
 | Debug a weird run for reporting | **CLI** any command with `--debug` |
 | Scripting/automation (cron, scheduled digests) | **CLI** |
 
@@ -61,4 +61,4 @@ Rule of thumb: **the web app is for deciding about apartments; the CLI is for op
 
 ## A note on quota accounting
 
-The in-app counter only sees calls made *through this app* — calls made before the ledger existed, or directly (curl, the RentCast dashboard's own test button), aren't counted. If the header number disagrees with [RentCast's dashboard](https://app.rentcast.io/app/api), the dashboard is the truth: sync with `python run.py quota --set-used rentcast=N`. The app stops fetching at 45/50 on purpose, so a miscount can never overrun the free tier.
+The in-app counter only sees calls made *through this app* — calls made before the ledger existed, or directly (curl, the RentCast dashboard's own test button), aren't counted. If the header number disagrees with [RentCast's dashboard](https://app.rentcast.io/app/api), the dashboard is the truth: sync with `neighbors quota --set-used rentcast=N`. The app stops fetching at 45/50 on purpose, so a miscount can never overrun the free tier.

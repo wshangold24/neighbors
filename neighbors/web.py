@@ -425,7 +425,7 @@ class Api:
     def save_rentcast_key(self, key: str) -> dict:
         """Store (or clear, if blank) the RentCast API key on disk — the in-app
         way to enable market-rate listings, so no terminal/env var is needed.
-        Written to ~/.aptfinder/rentcast_key with 0600 permissions (readable only
+        Written to ~/.neighbors/rentcast_key with 0600 permissions (readable only
         by this user account) and created that way from the start, so it's never
         briefly world-readable. It lives in the user's home dir (never the repo,
         never sent back to the browser) and persists across launches."""
@@ -625,13 +625,13 @@ class Api:
             params["postalcode"] = zip_code
         body = session.get(
             "https://nominatim.openstreetmap.org/search", params=params,
-            headers={"User-Agent": "aptfinder/0.2 (personal local apartment search)"})
+            headers={"User-Agent": "neighbors/0.2 (personal local apartment search)"})
         try:
             hit = json.loads(body)[0]
             return {"found": True, "address": hit.get("display_name", street),
                     "lat": float(hit["lat"]), "lon": float(hit["lon"])}
         except (TypeError, json.JSONDecodeError, IndexError, KeyError, ValueError):
-            logging.getLogger("aptfinder.web").warning(
+            logging.getLogger("neighbors.web").warning(
                 "geocode failed: %s / %s / %s", street, city, zip_code)
             return {"found": False,
                     "error": "no match — check the street number and city"}
@@ -1029,7 +1029,7 @@ def make_handler(api: Api):
             except DISCONNECTS:
                 pass   # client hung up while we were working
             except Exception as e:  # surface real errors to the UI, don't 500-loop
-                logging.getLogger("aptfinder").exception("GET %s failed", url.path)
+                logging.getLogger("neighbors").exception("GET %s failed", url.path)
                 self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
 
         def do_POST(self):
@@ -1051,7 +1051,7 @@ def make_handler(api: Api):
             except DISCONNECTS:
                 pass
             except Exception as e:
-                logging.getLogger("aptfinder").exception("POST %s failed", url.path)
+                logging.getLogger("neighbors").exception("POST %s failed", url.path)
                 self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
 
     return Handler
@@ -1068,7 +1068,7 @@ def serve(app_dir: Path, port: int, open_browser: bool = True,
     server = make_server(app_dir, port, host)
     shown = "127.0.0.1" if host in ("0.0.0.0", "") else host
     url = f"http://{shown}:{server.server_port}/"
-    print(f"  aptfinder web UI: {url}  (Ctrl-C to stop)")
+    print(f"  neighbors web UI: {url}  (Ctrl-C to stop)")
     if open_browser:
         import webbrowser
         webbrowser.open(url)

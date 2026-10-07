@@ -1,4 +1,4 @@
-# How aptfinder matches apartments
+# How neighbors matches apartments
 
 This document explains the method behind the app — how a pile of scraped and API-fetched listings becomes a ranked list of apartments you'd actually want. It assumes no background in search or machine learning; concepts are introduced as they're needed.
 
@@ -6,7 +6,7 @@ This document explains the method behind the app — how a pile of scraped and A
 
 Every listing site works the same way: you set filters (max $3,500, 1 bed, Williamsburg) and see only listings that pass *all* of them. Filters are binary — a $3,510 apartment is invisible, a great place one neighborhood over is invisible. But your actual preferences aren't binary; they're a *center of gravity* with soft edges. The "similar listings" module on those sites often feels better than the search itself precisely because it ranks by closeness instead of filtering by cutoffs.
 
-aptfinder is built on that observation. Instead of asking "does this listing pass every test?", it asks "**how far is this listing from what you want?**" and sorts by the answer.
+neighbors is built on that observation. Instead of asking "does this listing pass every test?", it asks "**how far is this listing from what you want?**" and sorts by the answer.
 
 ## 2. The pipeline at a glance
 
@@ -34,7 +34,7 @@ Each stage is a separate module (`providers/`, `models.py`, `store.py`, `engine.
 
 > **Concept: feature vector.** To compare things mathematically, you describe each one as a list of numbers — a point in space. A 2-bed, $3,200, 700 ft² apartment in Williamsburg becomes something like (3200, 2, 1, 40.708, −73.957, 700, {dishwasher, laundry}). Once everything is a point, "similar" has a precise meaning: *close together in that space*.
 
-aptfinder uses six features: price, bedrooms, bathrooms, location (latitude/longitude), square footage, and amenities. Your preferences become a point in the same space (your neighborhoods are converted to a geographic center; your budget becomes the price coordinate), so listings and preferences are directly comparable.
+neighbors uses six features: price, bedrooms, bathrooms, location (latitude/longitude), square footage, and amenities. Your preferences become a point in the same space (your neighborhoods are converted to a geographic center; your budget becomes the price coordinate), so listings and preferences are directly comparable.
 
 **Normalization — why raw numbers can't be compared.** Price differences are in the thousands; bedroom differences are single digits. If you naively summed differences, price would drown out everything. So each feature's difference is first rescaled to roughly 0-to-1, where 0 means "identical" and 1 means "about as different as reasonable candidates get." A $1,000 price gap and a cross-borough location gap end up numerically comparable, and the *weights* (next section) then express how much each should matter.
 
@@ -47,7 +47,7 @@ Two features need special handling:
 
 *(For the exact per-feature formulas, how every preference maps into the gate and
 the soft score, and the design invariants that keep scoring bugs from slipping in,
-see **`COMPATIBILITY.md`** — this section is the intuition, that doc is the spec.)*
+see **`SCORING.md`** — this section is the intuition, that doc is the spec.)*
 
 > **Concept: weighted Euclidean distance.** Euclidean distance is the straight-line distance you learned in geometry, generalized to any number of dimensions: square each per-feature difference, sum, take the square root. *Weighted* means each squared difference is multiplied by an importance factor first. Squaring has a useful side effect: one very wrong feature hurts more than several slightly wrong ones — a listing that's perfect except in Inwood should rank below one that's mildly off everywhere.
 
@@ -81,7 +81,7 @@ Every fetch is recorded in a **provenance manifest** — which provider, when, h
 
 This enables **coverage reasoning**: before spending a network request, the app checks whether a recent fetch already *covers* the current question. Coverage is a superset check — a fetch for "$0–4,000 anywhere in Brooklyn" contains everything a fetch for "$0–3,500 in Williamsburg" would return, so the narrower query can be answered from the store for free. The rules: the old price window must contain the new one on both ends, and the old area must contain every new neighborhood (a city-wide fetch covers anything). Only the fields that change *what gets fetched* are fingerprinted — changing k or weights doesn't invalidate coverage, because it doesn't change the data.
 
-Layered under this, a **monthly quota ledger** counts billable API calls per provider per calendar month (cache hits are free) and refuses RentCast fetches at 45/50 — so iterating several times a week can never blow the free tier. `aptfinder engine --plan` shows the fetch/skip decision per provider, with reasons, before anything is spent.
+Layered under this, a **monthly quota ledger** counts billable API calls per provider per calendar month (cache hits are free) and refuses RentCast fetches at 45/50 — so iterating several times a week can never blow the free tier. `neighbors engine --plan` shows the fetch/skip decision per provider, with reasons, before anything is spent.
 
 ## 7. The engine: iterating without drifting
 
@@ -121,7 +121,7 @@ With enough likes (≥ 5), the app can learn what actually matters to you. The i
 
 > **Intuition:** look at your liked apartments *through the lens of each feature*. If every like is within a few blocks of each other but their prices are scattered across your whole budget, your behavior is telling you location matters and price (within budget) doesn't. Formally: compute each like's per-feature distance from your preferences; features where likes **agree** (low spread, measured by standard deviation) get more weight, features where they scatter get less.
 
-The learned weights are rescaled so total weight mass matches the defaults (keeping distances comparable), then blended 50/50 with the hand-tuned defaults for stability. Guardrails: learning never touches the hard gate (it cannot cause drift), it's inspectable (`aptfinder weights` shows each learned weight against its default), and it's disposable (`--reset-weights`).
+The learned weights are rescaled so total weight mass matches the defaults (keeping distances comparable), then blended 50/50 with the hand-tuned defaults for stability. Guardrails: learning never touches the hard gate (it cannot cause drift), it's inspectable (`neighbors weights` shows each learned weight against its default), and it's disposable (`--reset-weights`).
 
 ## 10. Why each piece is where it is
 

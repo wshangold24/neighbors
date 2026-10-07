@@ -27,7 +27,7 @@ from .base import Provider
 from .socrata import (HOUSING_CONNECT_BUILDING, HOUSING_CONNECT_LOTTERY,
                       resolve_app_token, soda_get, soql_in)
 
-log = logging.getLogger("aptfinder.housingconnect")
+log = logging.getLogger("neighbors.housingconnect")
 
 BOROUGH = {"BK": "Brooklyn", "BX": "Bronx", "MN": "New York",
            "QN": "Queens", "SI": "Staten Island"}
